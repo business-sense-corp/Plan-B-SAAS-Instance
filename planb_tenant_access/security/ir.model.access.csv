@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_planb_tenant_slot_system,planb.tenant.user.slot system,model_planb_tenant_user_slot,base.group_system,1,1,1,1
+access_planb_tenant_slot_customer_admin,planb.tenant.user.slot customer admin,model_planb_tenant_user_slot,planb_tenant_access.group_planb_customer_admin,1,1,0,0
+access_planb_tenant_module_system,planb.tenant.module.access system,model_planb_tenant_module_access,base.group_system,1,1,1,1
+access_planb_tenant_module_customer_admin,planb.tenant.module.access customer admin,model_planb_tenant_module_access,planb_tenant_access.group_planb_customer_admin,1,0,0,0
+access_planb_tenant_password_wizard,planb tenant password wizard,model_planb_tenant_user_password_wizard,planb_tenant_access.group_planb_customer_admin,1,1,1,1

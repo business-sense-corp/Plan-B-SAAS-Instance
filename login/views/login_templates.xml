@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <template id="planb_login_customization" inherit_id="web.login" priority="9999">
+
+            <xpath expr="//div[@t-if='databases and len(databases) &gt; 1']" position="replace">
+
+                <style>
+                    a[href*="/web/reset_password"] {
+                        display: none !important;
+                    }
+
+                    a[href*="/web/signup"] {
+                        display: none !important;
+                    }
+
+                    .o_login_auth,
+                    .o_login_auth_button,
+                    .o_login_auth_separator,
+                    .o_auth_oauth_providers,
+                    button[name*="webauthn"],
+                    button[id*="webauthn"] {
+                        display: none !important;
+                    }
+
+                    .o_login_separator,
+                    .o_separator {
+                        display: none !important;
+                    }
+
+                    a[href*="login_as_superuser"],
+                    a[href*="/web/become"],
+                    a[href*="login="] {
+                        display: none !important;
+                    }
+                </style>
+
+                <script type="text/javascript">
+                    <![CDATA[
+                        (function () {
+                            function hideDebugLoginLinks() {
+                                const hiddenTexts = [
+                                    "Choose a user",
+                                    "Log in as superuser"
+                                ];
+
+                                document.querySelectorAll("a, button").forEach(function (el) {
+                                    const text = (el.textContent || "").trim();
+
+                                    if (hiddenTexts.includes(text)) {
+                                        el.style.setProperty("display", "none", "important");
+                                    }
+                                });
+                            }
+
+                            document.addEventListener("DOMContentLoaded", hideDebugLoginLinks);
+                            setTimeout(hideDebugLoginLinks, 300);
+                            setTimeout(hideDebugLoginLinks, 1000);
+                        })();
+                    ]]>
+                </script>
+
+            </xpath>
+
+        </template>
+
+        <template id="planb_login_layout_customization" inherit_id="web.login_layout"
+            priority="9999">
+            <!-- Kept intentionally empty to override the old broken inherited view. -->
+        </template>
+
+    </data>
+</odoo>

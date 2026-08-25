@@ -1,0 +1,5 @@
+/* إخفاء خيار تثبيت التطبيق Install App */
+body .dropdown-menu .dropdown-item[data-menu="install_pwa"],
+body .dropdown-menu a[data-menu="install_pwa"] {
+    display: none !important;
+}

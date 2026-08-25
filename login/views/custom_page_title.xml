@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="custom_page_title" inherit_id="web.layout" name="Custom Browser Tab Title">
+        <xpath expr="//head/title" position="replace">
+            <title><t t-esc="title or 'Plan B'"/></title>
+        </xpath>
+    </template>
+</odoo>

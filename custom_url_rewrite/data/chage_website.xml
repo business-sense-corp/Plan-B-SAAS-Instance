@@ -1,0 +1,14 @@
+<odoo>
+    <record id="view_partner_admin_inherit" model="ir.ui.view">
+        <field name="name">res.partner.admin.inherit</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//field[@name='website']" position="attributes">
+                <attribute name="placeholder">https://www.planb-hub.com/</attribute>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

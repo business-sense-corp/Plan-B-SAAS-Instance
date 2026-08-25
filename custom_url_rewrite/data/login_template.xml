@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="hide_brand_promotion" name="Hide Odoo Brand Promotion" inherit_id="web.login_layout">
+        <xpath expr="//a[contains(@href,'odoo.com') and contains(@href,'utm_source=db')]" position="replace">
+        </xpath>
+    </template>
+</odoo>

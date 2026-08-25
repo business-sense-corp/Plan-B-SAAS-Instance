@@ -1,0 +1,17 @@
+button[name="button_immediate_install"] {
+    display: none !important;
+}
+
+.o-hidden-ios {
+    display: none !important;
+}
+
+a[href*="odoo.com/pricing"] {
+    display: none !important;
+}
+#module_info {
+    display: none !important;
+}
+[name="more_info"] {
+    display: none !important;
+}

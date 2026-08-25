@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="strip_odoo_prefix_early" inherit_id="web.layout">
+        <xpath expr="//head" position="inside">
+            <script type="text/javascript">
+                (function () {
+                    // 1. تنظيف برامتر الـ redirect من الـ Query String (زي صفحة اللوجين)
+                    try {
+                        const urlObj = new URL(window.location.href);
+                        let updated = false;
+
+                        if (urlObj.searchParams.has('redirect')) {
+                            let redirectVal = urlObj.searchParams.get('redirect');
+                            if (redirectVal.startsWith('/odoo')) {
+                                redirectVal = redirectVal.replace(/^\/odoo/, '') || '/';
+                                urlObj.searchParams.set('redirect', redirectVal);
+                                updated = true;
+                            }
+                        }
+
+                        // 2. تنظيف الـ Path نفسه لو بيبدأ بـ /odoo
+                        if (urlObj.pathname.startsWith('/odoo')) {
+                            if (urlObj.pathname === '/odoo' || urlObj.pathname === '/odoo/') {
+                                urlObj.pathname = '/';
+                            } else {
+                                urlObj.pathname = urlObj.pathname.replace(/^\/odoo\//, '/');
+                            }
+                            updated = true;
+                        }
+
+                        if (updated) {
+                            window.history.replaceState(window.history.state, '', urlObj.toString());
+                        }
+                    } catch (e) {}
+
+                    // 3. Patch للـ History API عشان الملاحة مستقبلاً
+                    function stripOdooPrefix(url) {
+                        if (!url) return url;
+                        try {
+                            const isAbsolute = /^https?:\/\//i.test(url);
+                            const base = isAbsolute ? undefined : window.location.origin;
+                            const parsed = new URL(url, base);
+
+                            if (parsed.searchParams.has('redirect')) {
+                                let rVal = parsed.searchParams.get('redirect');
+                                if (rVal.startsWith('/odoo')) {
+                                    parsed.searchParams.set('redirect', rVal.replace(/^\/odoo/, '') || '/');
+                                }
+                            }
+
+                            if (parsed.pathname === '/odoo' || parsed.pathname === '/odoo/') {
+                                parsed.pathname = '/';
+                            } else if (parsed.pathname.startsWith('/odoo/')) {
+                                parsed.pathname = parsed.pathname.replace(/^\/odoo\//, '/');
+                            } else {
+                                return url;
+                            }
+                            return isAbsolute ? parsed.toString() : parsed.pathname + parsed.search + parsed.hash;
+                        } catch (e) {
+                            return url;
+                        }
+                    }
+
+                    const nativePush = window.history.pushState.bind(window.history);
+                    const nativeReplace = window.history.replaceState.bind(window.history);
+
+                    window.history.pushState = function (state, title, url) {
+                        return nativePush(state, title, stripOdooPrefix(url));
+                    };
+
+                    window.history.replaceState = function (state, title, url) {
+                        return nativeReplace(state, title, stripOdooPrefix(url));
+                    };
+                })();
+            </script>
+        </xpath>
+    </template>
+</odoo>

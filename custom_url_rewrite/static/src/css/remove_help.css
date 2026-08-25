@@ -1,0 +1,4 @@
+.o_user_menu .dropdown-item[data-menu="support"],
+.dropdown-menu a[href*="odoo.com/buy"] {
+    display: none !important;
+}

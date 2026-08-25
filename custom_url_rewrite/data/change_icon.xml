@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="custom_backend_favicon" inherit_id="web.layout">
+        <xpath expr="//link[@rel='shortcut icon']" position="attributes">
+            <attribute name="type">image/webp</attribute>
+            <attribute name="t-att-href">'/custom_url_rewrite/static/src/images/Plan B Hub.webp'</attribute>
+        </xpath>
+    </template>
+</odoo>
