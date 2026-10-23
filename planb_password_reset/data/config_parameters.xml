@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Validity of a one-time code, in minutes. -->
+        <record id="param_otp_ttl" model="ir.config_parameter">
+            <field name="key">planb.reset.otp_ttl_minutes</field>
+            <field name="value">10</field>
+        </record>
+
+        <!-- How many wrong codes are accepted before the request is burnt. -->
+        <record id="param_max_attempts" model="ir.config_parameter">
+            <field name="key">planb.reset.max_attempts</field>
+            <field name="value">5</field>
+        </record>
+
+        <!-- Rate limits. Deliberately strict: three requests per hour and per
+             address makes a statistical timing attack impractical. -->
+        <record id="param_rate_email" model="ir.config_parameter">
+            <field name="key">planb.reset.rate_email_per_hour</field>
+            <field name="value">3</field>
+        </record>
+        <record id="param_rate_ip" model="ir.config_parameter">
+            <field name="key">planb.reset.rate_ip_per_hour</field>
+            <field name="value">10</field>
+        </record>
+        <record id="param_rate_db" model="ir.config_parameter">
+            <field name="key">planb.reset.rate_db_per_hour</field>
+            <field name="value">100</field>
+        </record>
+
+        <!-- How long the password page stays open after the code was accepted.
+             Kept short: the code is already spent, so this token is the only
+             thing standing between a stolen browser and a password change. -->
+        <record id="param_verify_window" model="ir.config_parameter">
+            <field name="key">planb.reset.verify_window_minutes</field>
+            <field name="value">10</field>
+        </record>
+
+        <!-- How many password submissions a verified request accepts before it
+             is burnt (typos must not lock the user out, but a buggy client
+             must not hammer the endpoint either). -->
+        <record id="param_max_password_attempts" model="ir.config_parameter">
+            <field name="key">planb.reset.max_password_attempts</field>
+            <field name="value">5</field>
+        </record>
+
+        <record id="param_min_password_length" model="ir.config_parameter">
+            <field name="key">planb.reset.min_password_length</field>
+            <field name="value">8</field>
+        </record>
+
+        <!-- MUST stay False in production: when True the code is written to the
+             server log for local testing. -->
+        <record id="param_debug" model="ir.config_parameter">
+            <field name="key">planb.reset.debug</field>
+            <field name="value">False</field>
+        </record>
+
+    </data>
+</odoo>
