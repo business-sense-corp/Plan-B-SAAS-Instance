@@ -5,10 +5,11 @@
     <field name="model">planb.tenant.user.slot</field>
     <field name="arch" type="xml">
       <list create="0" delete="0" editable="bottom">
+        <field name="is_activated" column_invisible="1" />
         <field name="slot_number" readonly="1" />
-        <field name="name" />
-        <field name="login" />
-        <field name="email" />
+        <field name="name" readonly="is_activated" />
+        <field name="login" readonly="is_activated" />
+        <field name="email" readonly="is_activated" />
         <field name="access_all_modules" />
         <field name="module_ids" widget="many2many_tags"
           readonly="access_all_modules" />
@@ -26,15 +27,17 @@
             type="action"
             string="Change Password"
             class="btn-primary"
+            invisible="is_activated"
             context="{'default_slot_id': id}" />
         </header>
         <sheet>
+          <field name="is_activated" invisible="1" />
           <group>
             <group string="User">
               <field name="slot_number" readonly="1" />
-              <field name="name" />
-              <field name="login" />
-              <field name="email" />
+              <field name="name" readonly="is_activated" />
+              <field name="login" readonly="is_activated" />
+              <field name="email" readonly="is_activated" />
             </group>
             <group string="Package Access">
               <field name="access_all_modules" />
