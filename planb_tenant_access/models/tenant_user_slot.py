@@ -40,6 +40,11 @@ class PlanBTenantUserSlot(models.Model):
         string='Allowed Package Modules',
     )
     active = fields.Boolean(default=True, readonly=True)
+    is_activated = fields.Boolean(
+        string='Is Activated',
+        default=False,
+        help='Indicates whether this user has an active portal invitation or custom password.',
+    )
 
     _sql_constraints = [
         (
@@ -273,6 +278,8 @@ class PlanBTenantUserSlot(models.Model):
                 'email': payload.get('email') or user.email or False,
                 'active': True,
             }
+            if 'is_activated' in payload:
+                values['is_activated'] = bool(payload.get('is_activated'))
 
             if not slot:
                 values.update({
@@ -327,6 +334,10 @@ class PlanBTenantUserSlot(models.Model):
             if any(slot.slot_number <= 1 or not slot.active for slot in self):
                 raise AccessError(
                     _('You can only manage active employee slots in your plan.')
+                )
+            if any(slot.is_activated for slot in self) and {'name', 'login', 'email'} & set(vals):
+                raise AccessError(
+                    _('This user account has been activated. Changes to username, login, or email must be made through Plan B SaaS Portal.')
                 )
 
         result = super().write(vals)

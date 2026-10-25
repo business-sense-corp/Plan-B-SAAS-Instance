@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Plan B Tenant Access Control',
-    'version': '1.0.0',
+    'version': '1.0.1',
     'category': 'Administration',
     'summary': 'Restrict tenant users to paid package modules and slots',
     'author': 'Plan B',
