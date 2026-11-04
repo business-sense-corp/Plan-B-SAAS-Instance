@@ -20,6 +20,10 @@ class PlanBTenantUserPasswordWizard(models.TransientModel):
         slot = self.slot_id.exists()
         if not slot or slot.slot_number <= 1 or not slot.active:
             raise AccessError(_('You cannot change this user password.'))
+        if slot.is_activated:
+            raise ValidationError(
+                _('This user has an active account. Password changes must be performed through the invitation link or portal security.')
+            )
         if not self.env.user.has_group(
             'planb_tenant_access.group_planb_customer_admin'
         ):
