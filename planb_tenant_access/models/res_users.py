@@ -1,10 +1,24 @@
 # -*- coding: utf-8 -*-
+from contextlib import contextmanager
 import logging
 
 from odoo import api, models, _
 from odoo.exceptions import AccessError
 
 _logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def internal_slot_scope(cr):
+    """Context manager setting a tamper-proof flag directly on the database cursor (env.cr).
+    External RPC callers cannot set or forge cursor attributes.
+    """
+    prev = getattr(cr, '_planb_internal_slot_write', False)
+    cr._planb_internal_slot_write = True
+    try:
+        yield
+    finally:
+        cr._planb_internal_slot_write = prev
 
 
 class ResUsers(models.Model):
@@ -95,6 +109,8 @@ class ResUsers(models.Model):
 
     def write(self, vals):
         if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            is_internal_slot = getattr(self.env.cr, '_planb_internal_slot_write', False) is True
+
             # 1. Protect internal admin accounts from any non-internal writes
             if any(user._planb_is_internal_admin() for user in self):
                 raise AccessError(_(
@@ -110,7 +126,7 @@ class ResUsers(models.Model):
 
             # 3. Block direct group_ids writes to administrative/technical groups (unless via internal slot management)
             group_field_val = vals.get('group_ids') or vals.get('groups_id')
-            if group_field_val is not None and not self.env.context.get('planb_internal_slot_write'):
+            if group_field_val is not None and not is_internal_slot:
                 admin_group_ids = self._planb_administrative_group_ids()
                 # Parse commands from group_field_val
                 affected_group_ids = set()
@@ -140,21 +156,21 @@ class ResUsers(models.Model):
                     ))
 
             # 4. Block password writes directly for non-internal identities (unless valid token signup or internal slot write)
-            if 'password' in vals and not self.env.context.get('planb_internal_slot_write'):
+            if 'password' in vals and not is_internal_slot:
                 valid_signup_partner = getattr(self.env.cr, 'planb_valid_signup_partner', None)
                 partner_ids = set(self.mapped('partner_id.id'))
                 is_valid_token_signup = valid_signup_partner is not None and valid_signup_partner in partner_ids
                 if is_valid_token_signup:
                     self.env.cr.planb_valid_signup_partner = None
 
-                if not is_valid_token_signup and not self.env.context.get('planb_auth_signup_flow') and not self.env.context.get('auth_signup_token'):
+                if not is_valid_token_signup:
                     raise AccessError(_(
                         'Modifying passwords directly is not allowed. '
                         'Please use the Plan B SaaS Portal.'
                     ))
 
             # 5. Block login, email on slot-managed users
-            if not self.env.context.get('planb_internal_slot_write'):
+            if not is_internal_slot:
                 slot_user_ids = set(self.env['planb.tenant.user.slot'].sudo().search([
                     ('user_id', 'in', self.ids),
                     ('active', '=', True),
@@ -267,6 +283,11 @@ class ResPartner(models.Model):
             company_partner_ids = set(self.env['res.company'].sudo().search([]).mapped('partner_id.id'))
             affected_company_partners = self.filtered(lambda p: p.id in company_partner_ids)
             if affected_company_partners:
+                if 'active' in vals and not vals['active']:
+                    raise AccessError(_(
+                        "Archiving company partner directly in the tenant is not allowed. "
+                        "Please manage company profiles in the Plan B SaaS Portal."
+                    ))
                 from .res_company import SYNCED_COMPANY_FIELDS
                 for field in SYNCED_COMPANY_FIELDS:
                     if field in vals and field in self._fields:
@@ -308,7 +329,8 @@ class ResGroups(models.Model):
 
     def write(self, vals):
         if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
-            if not self.env.context.get('planb_internal_slot_write'):
+            is_internal_slot = getattr(self.env.cr, '_planb_internal_slot_write', False) is True
+            if not is_internal_slot:
                 admin_group_ids = self.env['res.users']._planb_administrative_group_ids()
                 if any(group.id in admin_group_ids for group in self):
                     raise AccessError(_(
@@ -318,6 +340,27 @@ class ResGroups(models.Model):
                     raise AccessError(_(
                         'Modifying group user assignments directly is not allowed. '
                         'Please assign module permissions via Licensed User Slots.'
+                    ))
+                # Block modifying implied_ids to link administrative groups
+                implied_val = vals.get('implied_ids')
+                if implied_val is not None:
+                    affected_implied_ids = set()
+                    for cmd in implied_val:
+                        if isinstance(cmd, (tuple, list)) and len(cmd) >= 2:
+                            code = cmd[0]
+                            if code in (1, 2, 3, 4):
+                                affected_implied_ids.add(cmd[1])
+                            elif code == 6 and len(cmd) >= 3 and isinstance(cmd[2], (list, tuple, set)):
+                                affected_implied_ids.update(cmd[2])
+                    if affected_implied_ids & admin_group_ids:
+                        raise AccessError(_(
+                            'Making groups inherit administrative or technical user groups is not allowed.'
+                        ))
+                # Block modifying security access rules or menus directly on groups
+                forbidden_group_fields = {'model_access', 'rule_groups', 'menu_access', 'view_access'}
+                if forbidden_group_fields & set(vals):
+                    raise AccessError(_(
+                        'Modifying security access rules or menus directly on groups is not allowed.'
                     ))
         return super().write(vals)
 

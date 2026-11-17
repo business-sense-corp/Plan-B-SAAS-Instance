@@ -2,6 +2,8 @@
 from odoo import fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from ..models.res_users import internal_slot_scope
+
 
 class PlanBTenantUserPasswordWizard(models.TransientModel):
     _name = 'planb.tenant.user.password.wizard'
@@ -36,5 +38,6 @@ class PlanBTenantUserPasswordWizard(models.TransientModel):
             raise ValidationError(
                 _('The password must contain at least 8 characters.')
             )
-        slot.user_id.sudo().with_context(planb_internal_slot_write=True).write({'password': self.new_password})
+        with internal_slot_scope(self.env.cr):
+            slot.user_id.sudo().write({'password': self.new_password})
         return {'type': 'ir.actions.act_window_close'}

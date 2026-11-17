@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo.tests.common import TransactionCase, tagged
+from ..models.res_users import internal_slot_scope
 
 
 @tagged('post_install', '-at_install', 'planb_tenant_access')
@@ -362,10 +363,17 @@ class TestTenantSettingsLock(TransactionCase):
                 'groups_id': [(4, self.group_system.id)],
             })
 
-        # Internal slot write with context is allowed
-        self.regular_user.with_user(self.customer_owner).with_context(planb_internal_slot_write=True).write({
-            'group_ids': [(4, self.env.ref('base.group_user').id)],
-        })
+        # Internal slot write with internal_slot_scope is allowed
+        with internal_slot_scope(self.env.cr):
+            self.regular_user.with_user(self.customer_owner).write({
+                'group_ids': [(4, self.env.ref('base.group_user').id)],
+            })
+
+        # Fake context spoofing without internal_slot_scope is BLOCKED
+        with self.assertRaises(AccessError):
+            self.regular_user.with_user(self.customer_owner).with_context(planb_internal_slot_write=True).write({
+                'group_ids': [(4, self.group_system.id)],
+            })
 
         # Internal admin direct write is allowed
         self.regular_user.with_user(self.admin_user).write({
@@ -440,11 +448,28 @@ class TestTenantSettingsLock(TransactionCase):
         if 'group_discount_per_so_line' in settings_model._fields:
             s_sales = settings_model.create({'group_discount_per_so_line': True})
             s_sales.execute()
+            disc_group = self.env.ref('sale.group_discount_per_so_line', raise_if_not_found=False)
+            if disc_group:
+                self.assertIn(disc_group, self.env.ref('base.group_user').implied_ids)
+
+            # Toggle back to False
+            s_sales_off = settings_model.create({'group_discount_per_so_line': False})
+            s_sales_off.execute()
+            if disc_group:
+                self.assertNotIn(disc_group, self.env.ref('base.group_user').implied_ids)
 
         # Test Inventory group setting (group_stock_multi_locations)
         if 'group_stock_multi_locations' in settings_model._fields:
             s_stock = settings_model.create({'group_stock_multi_locations': True})
             s_stock.execute()
+            loc_group = self.env.ref('stock.group_stock_multi_locations', raise_if_not_found=False)
+            if loc_group:
+                self.assertIn(loc_group, self.env.ref('base.group_user').implied_ids)
+
+            s_stock_off = settings_model.create({'group_stock_multi_locations': False})
+            s_stock_off.execute()
+            if loc_group:
+                self.assertNotIn(loc_group, self.env.ref('base.group_user').implied_ids)
 
     def test_15_change_password_wizards_blocked(self):
         """Test that change.password.wizard and change.password.own are blocked for non-internal users."""
@@ -636,15 +661,16 @@ class TestTenantSettingsLock(TransactionCase):
         # Ensure slot 1 exists
         slot_1 = slot_model.sudo().search([('slot_number', '=', 1)], limit=1)
         if not slot_1:
-            slot_1 = slot_model.sudo().with_context(planb_internal_slot_write=True).create({
-                'slot_number': 1,
-                'user_id': self.customer_owner.id,
-                'name': self.customer_owner.name,
-                'login': self.customer_owner.login,
-                'email': self.customer_owner.email,
-                'active': True,
-                'is_activated': True,
-            })
+            with internal_slot_scope(self.env.cr):
+                slot_1 = slot_model.sudo().create({
+                    'slot_number': 1,
+                    'user_id': self.customer_owner.id,
+                    'name': self.customer_owner.name,
+                    'login': self.customer_owner.login,
+                    'email': self.customer_owner.email,
+                    'active': True,
+                    'is_activated': True,
+                })
 
         # Create unactivated employee user & slot (slot 995)
         unactivated_user = self.env['res.users'].with_user(self.admin_user).create({
@@ -653,16 +679,17 @@ class TestTenantSettingsLock(TransactionCase):
             'email': 'pending_emp@example.com',
             'group_ids': [(6, 0, [self.env.ref('base.group_user').id])],
         })
-        employee_slot = slot_model.sudo().with_context(planb_internal_slot_write=True).create({
-            'slot_number': 995,
-            'user_id': unactivated_user.id,
-            'name': unactivated_user.name,
-            'login': unactivated_user.login,
-            'email': unactivated_user.email,
-            'active': True,
-            'is_activated': False,
-            'access_all_modules': True,
-        })
+        with internal_slot_scope(self.env.cr):
+            employee_slot = slot_model.sudo().create({
+                'slot_number': 995,
+                'user_id': unactivated_user.id,
+                'name': unactivated_user.name,
+                'login': unactivated_user.login,
+                'email': unactivated_user.email,
+                'active': True,
+                'is_activated': False,
+                'access_all_modules': True,
+            })
         owner_employee_slot = slot_model.with_user(self.customer_owner).browse(employee_slot.id)
         owner_slot_1 = slot_model.with_user(self.customer_owner).browse(slot_1.id)
 
@@ -685,7 +712,8 @@ class TestTenantSettingsLock(TransactionCase):
         self.assertFalse(employee_slot.access_all_modules)
 
         # 3. Email change on activated slot as Owner (blocked)
-        employee_slot.sudo().with_context(planb_internal_slot_write=True).write({'is_activated': True})
+        with internal_slot_scope(self.env.cr):
+            employee_slot.sudo().write({'is_activated': True})
         with self.assertRaises(AccessError):
             owner_employee_slot.write({
                 'email': 'hacked_email@example.com',
@@ -740,16 +768,17 @@ class TestTenantSettingsLock(TransactionCase):
             'name': 'Internal Created User',
             'login': 'internal_created@example.com',
         })
-        admin_slot = slot_model.with_user(self.admin_user).with_context(planb_internal_slot_write=True).create({
-            'slot_number': 997,
-            'user_id': new_user.id,
-            'name': new_user.name,
-            'login': new_user.login,
-            'active': True,
-        })
-        self.assertTrue(admin_slot.exists())
-        admin_slot.with_user(self.admin_user).with_context(planb_internal_slot_write=True).unlink()
-        self.assertFalse(admin_slot.exists())
+        with internal_slot_scope(self.env.cr):
+            admin_slot = slot_model.with_user(self.admin_user).create({
+                'slot_number': 997,
+                'user_id': new_user.id,
+                'name': new_user.name,
+                'login': new_user.login,
+                'active': True,
+            })
+            self.assertTrue(admin_slot.exists())
+            admin_slot.with_user(self.admin_user).unlink()
+            self.assertFalse(admin_slot.exists())
 
         # 2. When kill-switch is inactive, Owner can create and unlink slots
         param_obj.set_param('planb.lock_settings', 'False')
@@ -854,6 +883,116 @@ class TestTenantSettingsLock(TransactionCase):
         company_partner.with_user(self.customer_owner).write({'phone': '+1987654321'})
         self.assertEqual(company_partner.phone, '+1987654321')
         param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_24_res_groups_implied_ids_and_rules_privilege_escalation_blocked(self):
+        """Test that customer owner cannot escalate privileges via res.groups.implied_ids
+        or modify group security rules/menus directly."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        group_user = self.env.ref('base.group_user')
+
+        # 1. Customer owner cannot make group_user imply group_system
+        with self.assertRaises(AccessError):
+            group_user.with_user(self.customer_owner).write({
+                'implied_ids': [(4, self.group_system.id)],
+            })
+
+        # 2. Customer owner cannot make group_user imply customer admin group
+        admin_group = self.env.ref('planb_tenant_access.group_planb_customer_admin')
+        with self.assertRaises(AccessError):
+            group_user.with_user(self.customer_owner).write({
+                'implied_ids': [(4, admin_group.id)],
+            })
+
+        # 3. Customer owner cannot modify model_access or rule_groups on res.groups
+        with self.assertRaises(AccessError):
+            group_user.with_user(self.customer_owner).write({
+                'model_access': [(5, 0, 0)],
+            })
+
+        with self.assertRaises(AccessError):
+            group_user.with_user(self.customer_owner).write({
+                'rule_groups': [(5, 0, 0)],
+            })
+
+    def test_25_context_spoofing_bypasses_blocked(self):
+        """Test that RPC caller cannot spoof internal execution state via context dictionary."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        slot_model = self.env['planb.tenant.user.slot']
+
+        # 1. Spoofing planb_auth_signup_flow to modify password is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).with_context(planb_auth_signup_flow=True).write({
+                'password': 'SpoofedPassword123!',
+            })
+
+        # 2. Spoofing auth_signup_token in context to modify password is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).with_context(auth_signup_token='fake_token_123').write({
+                'password': 'SpoofedPassword123!',
+            })
+
+        # 3. Spoofing planb_internal_slot_write in context to modify slot password is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).with_context(planb_internal_slot_write=True).write({
+                'password': 'SpoofedPassword123!',
+            })
+
+        # 4. Spoofing planb_internal_slot_write in context to modify slot login is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).with_context(planb_internal_slot_write=True).write({
+                'login': 'spoofed_login@example.com',
+            })
+
+        # 5. Spoofing planb_internal_slot_write in context to create a slot is blocked
+        with self.assertRaises(AccessError):
+            slot_model.with_user(self.customer_owner).with_context(planb_internal_slot_write=True).create({
+                'slot_number': 9999,
+                'user_id': self.regular_user.id,
+                'name': 'Spoofed Slot',
+                'login': self.regular_user.login,
+            })
+
+        # 6. Spoofing planb_internal_slot_write in context to unlink a slot is blocked
+        owner_seat_slot = slot_model.with_user(self.customer_owner).browse(self.seat_slot.id)
+        with self.assertRaises(AccessError):
+            owner_seat_slot.with_context(planb_internal_slot_write=True).unlink()
+
+    def test_26_company_partner_id_and_archival_blocked(self):
+        """Test that company.partner_id modification, company partner archival,
+        and res.company archival are strictly blocked for non-internal users."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        company = self.env.company
+        company_partner = company.partner_id
+
+        # 1. Customer owner cannot change company.partner_id
+        new_partner = self.env['res.partner'].with_user(self.customer_owner).create({
+            'name': 'Bypass Attempt Partner',
+        })
+        with self.assertRaises(AccessError):
+            company.with_user(self.customer_owner).write({
+                'partner_id': new_partner.id,
+            })
+
+        # 2. Customer owner cannot archive company.partner_id
+        with self.assertRaises(AccessError):
+            company_partner.with_user(self.customer_owner).write({
+                'active': False,
+            })
+
+        # 3. Customer owner cannot archive res.company directly
+        with self.assertRaises(AccessError):
+            company.with_user(self.customer_owner).write({
+                'active': False,
+            })
 
 
 

@@ -4,6 +4,8 @@ import logging
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from .res_users import internal_slot_scope
+
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +66,7 @@ class PlanBTenantUserSlot(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if not self.env.context.get('planb_internal_slot_write'):
+        if not getattr(self.env.cr, '_planb_internal_slot_write', False):
             if self._is_customer_admin_request():
                 raise AccessError(_(
                     'Creating licensed user slots directly in the tenant is not allowed. '
@@ -73,7 +75,7 @@ class PlanBTenantUserSlot(models.Model):
         return super().create(vals_list)
 
     def unlink(self):
-        if not self.env.context.get('planb_internal_slot_write'):
+        if not getattr(self.env.cr, '_planb_internal_slot_write', False):
             if self._is_customer_admin_request():
                 raise AccessError(_(
                     'Deleting licensed user slots directly in the tenant is not allowed. '
@@ -154,12 +156,13 @@ class PlanBTenantUserSlot(models.Model):
     def _apply_profile_to_user(self):
         for slot in self:
             slot._validate_customer_login(slot.login)
-            slot.user_id.sudo().with_context(planb_internal_slot_write=True).write({
-                'name': slot.name,
-                'login': slot.login.strip(),
-                'email': (slot.email or '').strip() or False,
-                'share': False,
-            })
+            with internal_slot_scope(self.env.cr):
+                slot.user_id.sudo().write({
+                    'name': slot.name,
+                    'login': slot.login.strip(),
+                    'email': (slot.email or '').strip() or False,
+                    'share': False,
+                })
 
     def _selected_modules(self):
         self.ensure_one()
@@ -195,11 +198,12 @@ class PlanBTenantUserSlot(models.Model):
             if slot.slot_number == 1 and customer_admin_group_id:
                 final_ids.add(customer_admin_group_id)
 
-            user.with_context(planb_internal_slot_write=True).write({
-                'group_ids': [(6, 0, sorted(final_ids))],
-                'share': False,
-                'active': True,
-            })
+            with internal_slot_scope(self.env.cr):
+                user.write({
+                    'group_ids': [(6, 0, sorted(final_ids))],
+                    'share': False,
+                    'active': True,
+                })
 
         # Odoo caches loaded menus by user. Package/module changes must be
         # visible immediately without requiring a server restart.
@@ -223,113 +227,114 @@ class PlanBTenantUserSlot(models.Model):
         if not self.env.user.has_group('base.group_system'):
             raise AccessError(_('Only the SaaS service may synchronize slots.'))
 
-        config = self.env['ir.config_parameter'].sudo()
-        config.set_param('planb.internal_admin_login', internal_admin_login)
-        config.set_param('planb.service_login', service_login)
+        with internal_slot_scope(self.env.cr):
+            config = self.env['ir.config_parameter'].sudo()
+            config.set_param('planb.internal_admin_login', internal_admin_login)
+            config.set_param('planb.service_login', service_login)
 
-        module_model = self.env['planb.tenant.module.access'].sudo().with_context(
-            active_test=False
-        )
-        active_module_ids = []
-        for definition in module_definitions or []:
-            technical_name = (definition.get('technical_name') or '').strip()
-            if not technical_name:
-                continue
-            module = module_model.search([
-                ('technical_name', '=', technical_name),
-            ], limit=1)
-            values = {
-                'name': definition.get('name') or technical_name,
-                'technical_name': technical_name,
-                'user_group_xmlids': self._definition_text(
-                    definition.get('user_group_xmlids')
-                ),
-                'manager_group_xmlids': self._definition_text(
-                    definition.get('manager_group_xmlids')
-                ),
-                'root_menu_xmlids': self._definition_text(
-                    definition.get('root_menu_xmlids')
-                ),
-                'active': True,
-            }
-            if module:
-                module.write(values)
-            else:
-                module = module_model.create(values)
-            active_module_ids.append(module.id)
-
-        stale_modules = module_model.search([
-            ('id', 'not in', active_module_ids or [0]),
-            ('active', '=', True),
-        ])
-        if stale_modules:
-            stale_modules.write({'active': False})
-
-        active_modules = module_model.browse(active_module_ids).filtered('active')
-        active_slot_numbers = []
-        synced_slots = self.sudo().browse()
-
-        for payload in slots or []:
-            slot_number = int(payload.get('slot_number') or 0)
-            user_id = int(payload.get('user_id') or 0)
-            if slot_number <= 0 or not user_id:
-                continue
-
-            user = self.env['res.users'].sudo().with_context(
+            module_model = self.env['planb.tenant.module.access'].sudo().with_context(
                 active_test=False
-            ).browse(user_id).exists()
-            if not user:
-                continue
-
-            slot = self.sudo().with_context(active_test=False).search([
-                ('slot_number', '=', slot_number),
-            ], limit=1)
-
-            values = {
-                'user_id': user.id,
-                'name': payload.get('name') or user.name,
-                'login': payload.get('login') or user.login,
-                'email': payload.get('email') or user.email or False,
-                'active': True,
-            }
-            if 'is_activated' in payload:
-                values['is_activated'] = bool(payload.get('is_activated'))
-
-            if not slot:
-                values.update({
-                    'slot_number': slot_number,
-                    'access_all_modules': True,
-                    'module_ids': [(6, 0, active_modules.ids)],
-                })
-                slot = self.sudo().create(values)
-            else:
-                if slot_number == 1 or slot.access_all_modules:
-                    values['module_ids'] = [(6, 0, active_modules.ids)]
-                    values['access_all_modules'] = True
+            )
+            active_module_ids = []
+            for definition in module_definitions or []:
+                technical_name = (definition.get('technical_name') or '').strip()
+                if not technical_name:
+                    continue
+                module = module_model.search([
+                    ('technical_name', '=', technical_name),
+                ], limit=1)
+                values = {
+                    'name': definition.get('name') or technical_name,
+                    'technical_name': technical_name,
+                    'user_group_xmlids': self._definition_text(
+                        definition.get('user_group_xmlids')
+                    ),
+                    'manager_group_xmlids': self._definition_text(
+                        definition.get('manager_group_xmlids')
+                    ),
+                    'root_menu_xmlids': self._definition_text(
+                        definition.get('root_menu_xmlids')
+                    ),
+                    'active': True,
+                }
+                if module:
+                    module.write(values)
                 else:
-                    selected_ids = slot.module_ids.filtered(
-                        lambda module: module.id in active_modules.ids
-                    ).ids
-                    values['module_ids'] = [(6, 0, selected_ids)]
-                slot.sudo().write(values)
+                    module = module_model.create(values)
+                active_module_ids.append(module.id)
 
-            active_slot_numbers.append(slot_number)
-            synced_slots |= slot
+            stale_modules = module_model.search([
+                ('id', 'not in', active_module_ids or [0]),
+                ('active', '=', True),
+            ])
+            if stale_modules:
+                stale_modules.write({'active': False})
 
-        stale_slots = self.sudo().with_context(active_test=False).search([
-            ('slot_number', 'not in', active_slot_numbers or [0]),
-            ('active', '=', True),
-        ])
-        if stale_slots:
-            stale_slots.write({'active': False})
+            active_modules = module_model.browse(active_module_ids).filtered('active')
+            active_slot_numbers = []
+            synced_slots = self.sudo().browse()
 
-        # Apply package-manager access to slot 1 and the saved per-user module
-        # selections to employee slots. No employee selection is overwritten.
-        synced_slots._apply_module_access()
-        return True
+            for payload in slots or []:
+                slot_number = int(payload.get('slot_number') or 0)
+                user_id = int(payload.get('user_id') or 0)
+                if slot_number <= 0 or not user_id:
+                    continue
+
+                user = self.env['res.users'].sudo().with_context(
+                    active_test=False
+                ).browse(user_id).exists()
+                if not user:
+                    continue
+
+                slot = self.sudo().with_context(active_test=False).search([
+                    ('slot_number', '=', slot_number),
+                ], limit=1)
+
+                values = {
+                    'user_id': user.id,
+                    'name': payload.get('name') or user.name,
+                    'login': payload.get('login') or user.login,
+                    'email': payload.get('email') or user.email or False,
+                    'active': True,
+                }
+                if 'is_activated' in payload:
+                    values['is_activated'] = bool(payload.get('is_activated'))
+
+                if not slot:
+                    values.update({
+                        'slot_number': slot_number,
+                        'access_all_modules': True,
+                        'module_ids': [(6, 0, active_modules.ids)],
+                    })
+                    slot = self.sudo().create(values)
+                else:
+                    if slot_number == 1 or slot.access_all_modules:
+                        values['module_ids'] = [(6, 0, active_modules.ids)]
+                        values['access_all_modules'] = True
+                    else:
+                        selected_ids = slot.module_ids.filtered(
+                            lambda module: module.id in active_modules.ids
+                        ).ids
+                        values['module_ids'] = [(6, 0, selected_ids)]
+                    slot.sudo().write(values)
+
+                active_slot_numbers.append(slot_number)
+                synced_slots |= slot
+
+            stale_slots = self.sudo().with_context(active_test=False).search([
+                ('slot_number', 'not in', active_slot_numbers or [0]),
+                ('active', '=', True),
+            ])
+            if stale_slots:
+                stale_slots.write({'active': False})
+
+            # Apply package-manager access to slot 1 and the saved per-user module
+            # selections to employee slots. No employee selection is overwritten.
+            synced_slots._apply_module_access()
+            return True
 
     def write(self, vals):
-        if self.env.context.get('planb_internal_slot_write'):
+        if getattr(self.env.cr, '_planb_internal_slot_write', False):
             return super().write(vals)
 
         customer_admin_request = self._is_customer_admin_request()
@@ -369,11 +374,10 @@ class PlanBTenantUserSlot(models.Model):
                     active_modules = self.env[
                         'planb.tenant.module.access'
                     ].sudo().search([('active', '=', True)])
-                    slot.with_context(
-                        planb_internal_slot_write=True
-                    ).write({
-                        'module_ids': [(6, 0, active_modules.ids)],
-                    })
+                    with internal_slot_scope(self.env.cr):
+                        slot.write({
+                            'module_ids': [(6, 0, active_modules.ids)],
+                        })
             self._apply_module_access()
 
         if {'name', 'login', 'email'} & set(vals):

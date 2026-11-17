@@ -40,6 +40,16 @@ class ResCompany(models.Model):
 
     def write(self, vals):
         if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            if 'active' in vals and not vals['active']:
+                raise AccessError(_(
+                    "Archiving companies directly in the tenant is not allowed. "
+                    "Please manage company profiles in the Plan B SaaS Portal."
+                ))
+            if 'partner_id' in vals:
+                raise AccessError(_(
+                    "Modifying company partner directly in the tenant is not allowed. "
+                    "Please manage company profiles in the Plan B SaaS Portal."
+                ))
             for field in SYNCED_COMPANY_FIELDS:
                 if field in vals and field in self._fields:
                     for company in self:
