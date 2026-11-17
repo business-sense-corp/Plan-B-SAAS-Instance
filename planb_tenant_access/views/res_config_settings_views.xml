@@ -40,6 +40,9 @@
                     <widget name="res_config_dev_tool"/>
                 </div>
             </xpath>
+            <xpath expr="//div[@id='about']" position="attributes">
+                <attribute name="invisible">planb_hide_system_settings</attribute>
+            </xpath>
         </field>
     </record>
 </odoo>

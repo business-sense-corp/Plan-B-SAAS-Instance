@@ -194,6 +194,7 @@ class TestTenantSettingsLock(TransactionCase):
             self.assertIn('planb_dev_tools_block', arch)
             self.assertIn('contacts_settings', arch)
             self.assertIn('emails', arch)
+            self.assertIn('about', arch)
 
     def test_06_debug_neutralization(self):
         """Test ir.http._handle_debug neutralization for non-internal identities."""
