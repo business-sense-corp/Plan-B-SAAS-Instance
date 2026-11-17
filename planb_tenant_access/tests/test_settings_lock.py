@@ -1004,24 +1004,46 @@ class TestTenantSettingsLock(TransactionCase):
         """Prove get_views as Owner: Outgoing Email Servers present, Digest present,
         alias, Gmail, Outlook, about, and dev tools have planb_hide_system_settings.
         """
+        from lxml import etree
         views = self.env['res.config.settings'].with_user(self.customer_owner).get_views([(False, 'form')])
         arch = views['views']['form']['arch']
+        doc = etree.fromstring(arch)
 
         # 1. Outgoing email servers is present and NOT hidden
-        self.assertIn('email_servers_setting', arch)
+        servers_nodes = doc.xpath("//*[@id='email_servers_setting']")
+        self.assertTrue(servers_nodes, "email_servers_setting must be present")
+        self.assertNotIn('invisible', servers_nodes[0].attrib)
+
         # 2. Document Layout is present
-        self.assertIn('document_layout_setting', arch)
-        # 3. Inner email settings are hidden
-        self.assertIn('id="email-alias-setting" invisible="planb_hide_system_settings"', arch)
-        self.assertIn('id="email-outlook-setting" invisible="planb_hide_system_settings"', arch)
-        self.assertIn('name="module_google_gmail"', arch)
+        self.assertTrue(doc.xpath("//*[@id='document_layout_setting']"))
+
+        # 3. Inner email settings are hidden via planb_hide_system_settings
+        alias_nodes = doc.xpath("//*[@id='email-alias-setting']")
+        self.assertTrue(alias_nodes)
+        self.assertEqual(alias_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
+
+        outlook_nodes = doc.xpath("//*[@id='email-outlook-setting']")
+        self.assertTrue(outlook_nodes)
+        self.assertEqual(outlook_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
+
+        gmail_nodes = doc.xpath("//setting[field[@name='module_google_gmail']]")
+        self.assertTrue(gmail_nodes)
+        self.assertEqual(gmail_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
+
         # 4. About block is hidden
-        self.assertIn('id="about" invisible="planb_hide_system_settings"', arch)
+        about_nodes = doc.xpath("//*[@id='about']")
+        self.assertTrue(about_nodes)
+        self.assertEqual(about_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
+
         # 5. Developer tools block is hidden
-        self.assertIn('id="planb_dev_tools_block" invisible="planb_hide_system_settings"', arch)
+        dev_nodes = doc.xpath("//*[@id='planb_dev_tools_block']")
+        self.assertTrue(dev_nodes)
+        self.assertEqual(dev_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
+
         # 6. Update info button is hidden
-        self.assertIn('name="open_company"', arch)
-        self.assertIn('invisible="planb_hide_system_settings"', arch)
+        btn_nodes = doc.xpath("//button[@name='open_company']")
+        self.assertTrue(btn_nodes)
+        self.assertEqual(btn_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
 
 
 
