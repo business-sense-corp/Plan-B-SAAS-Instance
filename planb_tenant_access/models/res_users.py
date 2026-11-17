@@ -10,6 +10,26 @@ _logger = logging.getLogger(__name__)
 class ResUsers(models.Model):
     _inherit = 'res.users'
 
+    def _planb_is_internal_admin(self):
+        """Check if self is an internal Plan B administrator (OdooBot / root or Administrator).
+        Identity is strictly based on base.user_admin and base.user_root.
+        Execution state (env.su / sudo) is NOT identity.
+        """
+        admin_user = self.env.ref('base.user_admin', raise_if_not_found=False)
+        root_user = self.env.ref('base.user_root', raise_if_not_found=False)
+        internal_ids = {u.id for u in (admin_user, root_user) if u}
+        if not internal_ids:
+            internal_ids = {1, 2}
+        return bool(self) and all(user.id in internal_ids for user in self)
+
+    @api.model
+    def _planb_lock_active(self):
+        """Check if the tenant settings lock kill-switch is active.
+        Defaults to True (fail-closed) if the parameter is absent or True.
+        """
+        val = self.env['ir.config_parameter'].sudo().get_param('planb.lock_settings', default='True')
+        return str(val).strip().lower() not in ('false', '0', 'no', 'off')
+
     def _planb_is_customer_admin(self):
         return (
             self.env.user.has_group(
