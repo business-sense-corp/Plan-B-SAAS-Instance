@@ -60,12 +60,26 @@ class PlanBTenantUserSlot(models.Model):
     ]
 
     def _is_customer_admin_request(self):
-        return (
-            self.env.user.has_group(
-                'planb_tenant_access.group_planb_customer_admin'
-            )
-            and not self.env.user.has_group('base.group_system')
-        )
+        return self.env.user._planb_is_customer_admin()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if not self.env.context.get('planb_internal_slot_write'):
+            if self._is_customer_admin_request():
+                raise AccessError(_(
+                    'Creating licensed user slots directly in the tenant is not allowed. '
+                    'Please manage user slots from the Plan B SaaS Portal.'
+                ))
+        return super().create(vals_list)
+
+    def unlink(self):
+        if not self.env.context.get('planb_internal_slot_write'):
+            if self._is_customer_admin_request():
+                raise AccessError(_(
+                    'Deleting licensed user slots directly in the tenant is not allowed. '
+                    'Please manage user slots from the Plan B SaaS Portal.'
+                ))
+        return super().unlink()
 
     @api.model
     def _xmlids_to_group_ids(self, xmlids):

@@ -24,8 +24,10 @@ class PlanBTenantUserPasswordWizard(models.TransientModel):
             raise ValidationError(
                 _('This user has an active account. Password changes must be performed through the invitation link or portal security.')
             )
-        if not self.env.user.has_group(
-            'planb_tenant_access.group_planb_customer_admin'
+        if not (
+            self.env.user.has_group('planb_tenant_access.group_planb_customer_admin')
+            or self.env.user.has_group('base.group_system')
+            or self.env.user._planb_is_internal_admin()
         ):
             raise AccessError(_('Only the customer administrator can do this.'))
         if self.new_password != self.confirm_password:

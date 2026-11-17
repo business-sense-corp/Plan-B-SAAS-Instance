@@ -31,11 +31,10 @@ class ResUsers(models.Model):
         return str(val).strip().lower() not in ('false', '0', 'no', 'off')
 
     def _planb_is_customer_admin(self):
+        user = self[:1] or self.env.user
         return (
-            self.env.user.has_group(
-                'planb_tenant_access.group_planb_customer_admin'
-            )
-            and self.env.user.has_group('base.group_system')
+            user._planb_lock_active()
+            and not user._planb_is_internal_admin()
         )
 
     @api.model_create_multi

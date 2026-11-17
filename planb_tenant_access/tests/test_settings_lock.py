@@ -617,6 +617,160 @@ class TestTenantSettingsLock(TransactionCase):
         self.assertEqual(company.primary_color, '#003366')
         self.assertEqual(company.secondary_color, '#336699')
 
+    def test_20_tenant_user_slot_matrix_as_owner(self):
+        """Test tenant user slot management matrix as Owner:
+        - pre-activation edit: name, login, email updates allowed
+        - module change: toggling modules / access_all_modules allowed
+        - email/name/login change on activated slot: blocked
+        - resend invite: allowed
+        - edit slot 1: blocked
+        - create slot: blocked
+        - unlink slot: blocked
+        """
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        slot_model = self.env['planb.tenant.user.slot']
+
+        # Ensure slot 1 exists
+        slot_1 = slot_model.sudo().search([('slot_number', '=', 1)], limit=1)
+        if not slot_1:
+            slot_1 = slot_model.sudo().with_context(planb_internal_slot_write=True).create({
+                'slot_number': 1,
+                'user_id': self.customer_owner.id,
+                'name': self.customer_owner.name,
+                'login': self.customer_owner.login,
+                'email': self.customer_owner.email,
+                'active': True,
+                'is_activated': True,
+            })
+
+        # Create unactivated employee user & slot (slot 995)
+        unactivated_user = self.env['res.users'].with_user(self.admin_user).create({
+            'name': 'Pending Employee',
+            'login': 'pending_emp@example.com',
+            'email': 'pending_emp@example.com',
+            'group_ids': [(6, 0, [self.env.ref('base.group_user').id])],
+        })
+        employee_slot = slot_model.sudo().with_context(planb_internal_slot_write=True).create({
+            'slot_number': 995,
+            'user_id': unactivated_user.id,
+            'name': unactivated_user.name,
+            'login': unactivated_user.login,
+            'email': unactivated_user.email,
+            'active': True,
+            'is_activated': False,
+            'access_all_modules': True,
+        })
+        owner_employee_slot = slot_model.with_user(self.customer_owner).browse(employee_slot.id)
+        owner_slot_1 = slot_model.with_user(self.customer_owner).browse(slot_1.id)
+
+        # 1. Pre-activation edit as Owner (name, login, email allowed)
+        owner_employee_slot.write({
+            'name': 'Updated Pending Employee',
+            'login': 'updated_pending@example.com',
+            'email': 'updated_pending@example.com',
+        })
+        self.assertEqual(employee_slot.name, 'Updated Pending Employee')
+        self.assertEqual(employee_slot.login, 'updated_pending@example.com')
+        self.assertEqual(unactivated_user.login, 'updated_pending@example.com')
+        self.assertEqual(unactivated_user.email, 'updated_pending@example.com')
+
+        # 2. Module change as Owner (allowed)
+        owner_employee_slot.write({
+            'access_all_modules': False,
+            'module_ids': [(6, 0, [])],
+        })
+        self.assertFalse(employee_slot.access_all_modules)
+
+        # 3. Email change on activated slot as Owner (blocked)
+        employee_slot.sudo().with_context(planb_internal_slot_write=True).write({'is_activated': True})
+        with self.assertRaises(AccessError):
+            owner_employee_slot.write({
+                'email': 'hacked_email@example.com',
+            })
+        with self.assertRaises(AccessError):
+            owner_employee_slot.write({
+                'login': 'hacked_login@example.com',
+            })
+        with self.assertRaises(AccessError):
+            owner_employee_slot.write({
+                'name': 'Hacked Name',
+            })
+
+        # 4. Resend invite (allowed for employee)
+        employee_slot.user_id.partner_id.signup_prepare(signup_type="signup")
+        token = employee_slot.user_id.partner_id.sudo()._generate_signup_token()
+        self.assertTrue(token)
+
+        # 5. Edit slot 1 as Owner (blocked)
+        with self.assertRaises(AccessError):
+            owner_slot_1.write({
+                'name': 'Renamed Slot 1',
+            })
+        with self.assertRaises(AccessError):
+            owner_slot_1.write({
+                'access_all_modules': False,
+            })
+
+        # 6. Create slot as Owner (blocked)
+        with self.assertRaises(AccessError):
+            slot_model.with_user(self.customer_owner).create({
+                'slot_number': 996,
+                'user_id': self.regular_user.id,
+                'name': 'Unauthorized Slot',
+                'login': self.regular_user.login,
+            })
+
+        # 7. Unlink slot as Owner (blocked)
+        with self.assertRaises(AccessError):
+            owner_employee_slot.unlink()
+
+    def test_21_tenant_user_slot_kill_switch_and_internal_admin(self):
+        """Test tenant user slot behavior with internal admin and kill-switch deactivation."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        slot_model = self.env['planb.tenant.user.slot']
+
+        # 1. Internal admin can create and unlink slots via internal context
+        new_user = self.env['res.users'].with_user(self.admin_user).create({
+            'name': 'Internal Created User',
+            'login': 'internal_created@example.com',
+        })
+        admin_slot = slot_model.with_user(self.admin_user).with_context(planb_internal_slot_write=True).create({
+            'slot_number': 997,
+            'user_id': new_user.id,
+            'name': new_user.name,
+            'login': new_user.login,
+            'active': True,
+        })
+        self.assertTrue(admin_slot.exists())
+        admin_slot.with_user(self.admin_user).with_context(planb_internal_slot_write=True).unlink()
+        self.assertFalse(admin_slot.exists())
+
+        # 2. When kill-switch is inactive, Owner can create and unlink slots
+        param_obj.set_param('planb.lock_settings', 'False')
+        unlocked_slot = slot_model.with_user(self.customer_owner).create({
+            'slot_number': 998,
+            'user_id': new_user.id,
+            'name': new_user.name,
+            'login': new_user.login,
+            'active': True,
+        })
+        self.assertTrue(unlocked_slot.exists())
+        unlocked_slot.with_user(self.customer_owner).unlink()
+        self.assertFalse(unlocked_slot.exists())
+
+        # 3. planb.* parameters remain protected even when kill-switch is False
+        planb_param = self.env['ir.config_parameter'].sudo().search([('key', '=', 'planb.lock_settings')], limit=1)
+        with self.assertRaises(AccessError):
+            planb_param.with_user(self.customer_owner).write({'value': 'True'})
+
+        param_obj.set_param('planb.lock_settings', 'True')
+
 
 
 
