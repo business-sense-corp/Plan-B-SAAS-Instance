@@ -161,4 +161,45 @@ class TestTenantSettingsLock(TransactionCase):
             self.assertTrue(view.active)
             self.assertEqual(view.inherit_id, self.env.ref('base_setup.res_config_settings_view_form'))
 
+    def test_06_debug_neutralization(self):
+        """Test ir.http._handle_debug neutralization for non-internal identities."""
+        from unittest.mock import MagicMock
+        from odoo.http import _request_stack
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        mock_session = MagicMock()
+        mock_session.debug = '1'
+
+        mock_req = MagicMock()
+        mock_req.session = mock_session
+        mock_req.httprequest.args.get.return_value = None
+
+        ir_http = self.env['ir.http']
+
+        _request_stack.push(mock_req)
+        try:
+            # Customer owner: debug is cleared
+            mock_req.env.user = self.customer_owner
+            ir_http._handle_debug()
+            self.assertEqual(mock_session.debug, '')
+
+            # Internal admin: debug is preserved
+            mock_session.debug = '1'
+            mock_req.env.user = self.admin_user
+            ir_http._handle_debug()
+            self.assertEqual(mock_session.debug, '1')
+
+            # When kill-switch is deactivated, customer owner debug is preserved
+            param_obj.set_param('planb.lock_settings', 'False')
+            mock_session.debug = '1'
+            mock_req.env.user = self.customer_owner
+            ir_http._handle_debug()
+            self.assertEqual(mock_session.debug, '1')
+
+            param_obj.set_param('planb.lock_settings', 'True')
+        finally:
+            _request_stack.pop()
+
+
 
