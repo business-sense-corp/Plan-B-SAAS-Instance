@@ -446,6 +446,91 @@ class TestTenantSettingsLock(TransactionCase):
             s_stock = settings_model.create({'group_stock_multi_locations': True})
             s_stock.execute()
 
+    def test_15_change_password_wizards_blocked(self):
+        """Test that change.password.wizard and change.password.own are blocked for non-internal users."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # 1. Customer owner calling action_change_password_wizard raises AccessError
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).action_change_password_wizard()
+
+        # 2. Customer owner calling preference_change_password raises AccessError
+        with self.assertRaises(AccessError):
+            self.customer_owner.with_user(self.customer_owner).preference_change_password()
+
+        # 3. Direct instantiation / create of change.password.wizard is blocked
+        with self.assertRaises(AccessError):
+            self.env['change.password.wizard'].with_user(self.customer_owner).default_get(['user_ids'])
+
+        with self.assertRaises(AccessError):
+            self.env['change.password.wizard'].with_user(self.customer_owner).create({})
+
+        # 4. Direct instantiation / create of change.password.own is blocked
+        with self.assertRaises(AccessError):
+            self.env['change.password.own'].with_user(self.customer_owner).default_get(['new_password'])
+
+        with self.assertRaises(AccessError):
+            self.env['change.password.own'].with_user(self.customer_owner).create({
+                'new_password': 'NewPassword123!',
+                'confirm_password': 'NewPassword123!',
+            })
+
+        # 5. Internal admin CAN use change.password.own and change.password.wizard
+        own_wizard = self.env['change.password.own'].with_user(self.admin_user).create({
+            'new_password': 'AdminPassChange123!',
+            'confirm_password': 'AdminPassChange123!',
+        })
+        self.assertTrue(own_wizard.exists())
+        own_wizard.unlink()
+
+        # 6. Kill-switch off allows customer owner to access wizards
+        param_obj.set_param('planb.lock_settings', 'False')
+        own_unlocked = self.env['change.password.own'].with_user(self.customer_owner).create({
+            'new_password': 'UnlockedPass123!',
+            'confirm_password': 'UnlockedPass123!',
+        })
+        self.assertTrue(own_unlocked.exists())
+        own_unlocked.unlink()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_16_portal_invitation_and_reset_flows(self):
+        """Test that portal invitation, password reset, and credential rotation by uid 2 still work."""
+        from odoo import fields
+        from dateutil.relativedelta import relativedelta
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        public_user = self.env.ref('base.public_user')
+
+        # 1. Credential rotation by uid 2 (admin_user)
+        self.seat_user.with_user(self.admin_user).write({'password': 'AdminRotatedPass123!'})
+        cred_admin = {'type': 'password', 'login': self.seat_user.login, 'password': 'AdminRotatedPass123!'}
+        auth_admin = self.env['res.users'].authenticate(cred_admin, {})
+        self.assertEqual(auth_admin['uid'], self.seat_user.id)
+
+        # 2. Portal invitation token flow (auth_signup token on partner)
+        self.seat_user.partner_id.signup_prepare(signup_type="signup")
+        invitation_token = self.seat_user.partner_id.sudo()._generate_signup_token()
+        self.assertTrue(invitation_token)
+
+        # Unauthenticated / public user signs up with the valid token (as done by auth_signup controller)
+        self.env['res.users'].with_user(public_user).sudo().signup({'password': 'InvitedUserPass123!'}, token=invitation_token)
+        cred_invited = {'type': 'password', 'login': self.seat_user.login, 'password': 'InvitedUserPass123!'}
+        auth_invited = self.env['res.users'].authenticate(cred_invited, {'interactive': False})
+        self.assertEqual(auth_invited['uid'], self.seat_user.id)
+
+        # 3. Password reset token flow
+        self.seat_user.partner_id.signup_prepare(signup_type="reset")
+        reset_token = self.seat_user.partner_id.sudo()._generate_signup_token()
+        self.assertTrue(reset_token)
+
+        self.env['res.users'].with_user(public_user).sudo().signup({'password': 'ResetUserPass123!'}, token=reset_token)
+        cred_reset = {'type': 'password', 'login': self.seat_user.login, 'password': 'ResetUserPass123!'}
+        auth_reset = self.env['res.users'].authenticate(cred_reset, {'interactive': False})
+        self.assertEqual(auth_reset['uid'], self.seat_user.id)
+
 
 
 

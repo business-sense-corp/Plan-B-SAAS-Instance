@@ -55,6 +55,22 @@ class ResUsers(models.Model):
             ))
         return super().unlink()
 
+    def action_change_password_wizard(self):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing user passwords from within the tenant is disabled. '
+                'Please manage user passwords through the Plan B SaaS Portal.'
+            ))
+        return super().action_change_password_wizard()
+
+    def preference_change_password(self):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing your password from within the tenant is disabled. '
+                'Please change your password through the Plan B SaaS Portal.'
+            ))
+        return super().preference_change_password()
+
     @api.model
     def signup(self, values, token=None):
         if token:
@@ -126,6 +142,12 @@ class ResUsers(models.Model):
 
             # 4. Block login, email, password on slot-managed users (unless internal slot write or valid auth signup token)
             if not self.env.context.get('planb_internal_slot_write'):
+                valid_signup_partner = getattr(self.env.cr, 'planb_valid_signup_partner', None)
+                partner_ids = set(self.mapped('partner_id.id'))
+                is_valid_token_signup = valid_signup_partner is not None and valid_signup_partner in partner_ids
+                if is_valid_token_signup:
+                    self.env.cr.planb_valid_signup_partner = None
+
                 slot_user_ids = set(self.env['planb.tenant.user.slot'].sudo().search([
                     ('user_id', 'in', self.ids),
                     ('active', '=', True),
@@ -142,7 +164,7 @@ class ResUsers(models.Model):
                             'Modifying email for slot-managed users is not allowed. '
                             'Please use the Plan B SaaS Portal.'
                         ))
-                    if 'password' in vals and not self.env.context.get('planb_auth_signup_flow') and not self.env.context.get('auth_signup_token'):
+                    if 'password' in vals and not is_valid_token_signup and not self.env.context.get('planb_auth_signup_flow') and not self.env.context.get('auth_signup_token'):
                         raise AccessError(_(
                             'Modifying password for slot-managed users directly is not allowed. '
                             'Please use the Plan B SaaS Portal.'
@@ -159,3 +181,73 @@ class ResUsers(models.Model):
                     except Exception as e:
                         _logger.warning("Could not revoke devices for tenant user %s: %s", user.id, e)
         return res
+
+
+class ChangePasswordWizard(models.TransientModel):
+    _inherit = 'change.password.wizard'
+
+    @api.model
+    def default_get(self, fields_list):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing user passwords from within the tenant is disabled. '
+                'Please manage user passwords through the Plan B SaaS Portal.'
+            ))
+        return super().default_get(fields_list)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing user passwords from within the tenant is disabled. '
+                'Please manage user passwords through the Plan B SaaS Portal.'
+            ))
+        return super().create(vals_list)
+
+    def change_password_button(self):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing user passwords from within the tenant is disabled. '
+                'Please manage user passwords through the Plan B SaaS Portal.'
+            ))
+        return super().change_password_button()
+
+
+class ChangePasswordOwn(models.TransientModel):
+    _inherit = 'change.password.own'
+
+    @api.model
+    def default_get(self, fields_list):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing your password from within the tenant is disabled. '
+                'Please change your password through the Plan B SaaS Portal.'
+            ))
+        return super().default_get(fields_list)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing your password from within the tenant is disabled. '
+                'Please change your password through the Plan B SaaS Portal.'
+            ))
+        return super().create(vals_list)
+
+    def change_password(self):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Changing your password from within the tenant is disabled. '
+                'Please change your password through the Plan B SaaS Portal.'
+            ))
+        return super().change_password()
+
+
+class ResPartner(models.Model):
+    _inherit = 'res.partner'
+
+    def write(self, vals):
+        if 'signup_type' in vals and not vals['signup_type']:
+            for partner in self:
+                partner.env.cr.planb_valid_signup_partner = partner.id
+        return super().write(vals)
