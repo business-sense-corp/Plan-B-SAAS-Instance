@@ -23,7 +23,13 @@
             <xpath expr="//div[@id='contacts_settings']" position="attributes">
                 <attribute name="invisible">planb_hide_system_settings</attribute>
             </xpath>
-            <xpath expr="//*[@id='emails']" position="attributes">
+            <xpath expr="//setting[@id='email-alias-setting']" position="attributes">
+                <attribute name="invisible">planb_hide_system_settings</attribute>
+            </xpath>
+            <xpath expr="//setting[field[@name='module_google_gmail']]" position="attributes">
+                <attribute name="invisible">planb_hide_system_settings</attribute>
+            </xpath>
+            <xpath expr="//setting[@id='email-outlook-setting']" position="attributes">
                 <attribute name="invisible">planb_hide_system_settings</attribute>
             </xpath>
             <xpath expr="//block[@id='user_default_rights']" position="attributes">

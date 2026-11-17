@@ -193,7 +193,7 @@ class TestTenantSettingsLock(TransactionCase):
             self.assertIn('open_company', arch)
             self.assertIn('planb_dev_tools_block', arch)
             self.assertIn('contacts_settings', arch)
-            self.assertIn('emails', arch)
+            self.assertIn('email-alias-setting', arch)
             self.assertIn('about', arch)
 
     def test_06_debug_neutralization(self):
@@ -999,6 +999,29 @@ class TestTenantSettingsLock(TransactionCase):
             company.with_user(self.customer_owner).write({
                 'active': False,
             })
+
+    def test_27_settings_view_get_views_proof(self):
+        """Prove get_views as Owner: Outgoing Email Servers present, Digest present,
+        alias, Gmail, Outlook, about, and dev tools have planb_hide_system_settings.
+        """
+        views = self.env['res.config.settings'].with_user(self.customer_owner).get_views([(False, 'form')])
+        arch = views['views']['form']['arch']
+
+        # 1. Outgoing email servers is present and NOT hidden
+        self.assertIn('email_servers_setting', arch)
+        # 2. Document Layout is present
+        self.assertIn('document_layout_setting', arch)
+        # 3. Inner email settings are hidden
+        self.assertIn('id="email-alias-setting" invisible="planb_hide_system_settings"', arch)
+        self.assertIn('id="email-outlook-setting" invisible="planb_hide_system_settings"', arch)
+        self.assertIn('name="module_google_gmail"', arch)
+        # 4. About block is hidden
+        self.assertIn('id="about" invisible="planb_hide_system_settings"', arch)
+        # 5. Developer tools block is hidden
+        self.assertIn('id="planb_dev_tools_block" invisible="planb_hide_system_settings"', arch)
+        # 6. Update info button is hidden
+        self.assertIn('name="open_company"', arch)
+        self.assertIn('invisible="planb_hide_system_settings"', arch)
 
 
 

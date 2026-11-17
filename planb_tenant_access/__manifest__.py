@@ -5,7 +5,7 @@
     'category': 'Administration',
     'summary': 'Restrict tenant users to paid package modules and slots',
     'author': 'Plan B',
-    'depends': ['base', 'base_setup'],
+    'depends': ['base', 'base_setup', 'mail'],
     'data': [
         'security/planb_tenant_access_security.xml',
         'security/ir.model.access.csv',
