@@ -531,6 +531,92 @@ class TestTenantSettingsLock(TransactionCase):
         auth_reset = self.env['res.users'].authenticate(cred_reset, {'interactive': False})
         self.assertEqual(auth_reset['uid'], self.seat_user.id)
 
+    def test_17_res_company_create_unlink_blocked(self):
+        """Test res.company create and unlink are blocked for non-internal users."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        company_model = self.env['res.company']
+
+        # 1. Customer owner cannot create company
+        with self.assertRaises(AccessError):
+            company_model.with_user(self.customer_owner).create({'name': 'Unauthorized New Company'})
+
+        # 2. Customer owner cannot unlink company (blocked by AccessError from guard)
+        company = self.env.company
+        with self.assertRaises(AccessError):
+            company.with_user(self.customer_owner).unlink()
+
+        # 3. Internal admin CAN create company
+        test_company = company_model.with_user(self.admin_user).create({'name': 'Admin Temporary Company'})
+        self.assertTrue(test_company.exists())
+
+        # 4. Kill-switch off allows customer owner to create company
+        param_obj.set_param('planb.lock_settings', 'False')
+        owner_company = company_model.with_user(self.customer_owner).create({'name': 'Unlocked Company'})
+        self.assertTrue(owner_company.exists())
+        param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_18_res_company_synced_fields_blocked(self):
+        """Test res.company synced fields writes are blocked for non-internal users."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        company = self.env.company
+
+        # Synced fields must be blocked when modified by customer owner
+        for field in ['name', 'vat', 'email', 'phone', 'street', 'city', 'zip']:
+            if field in company._fields:
+                with self.assertRaises(AccessError, msg=f"Writing to {field} must raise AccessError"):
+                    company.with_user(self.customer_owner).write({field: f"modified_{field}"})
+
+        # Non-synced fields MUST still save for customer owner
+        company.with_user(self.customer_owner).write({
+            'font': 'Lato',
+            'primary_color': '#123456',
+            'secondary_color': '#654321',
+        })
+        self.assertEqual(company.font, 'Lato')
+        self.assertEqual(company.primary_color, '#123456')
+
+        # Writing identical (unchanged) synced values does not raise
+        company.with_user(self.customer_owner).write({'name': company.name})
+
+        # Internal admin CAN write to synced fields
+        original_name = company.name
+        company.with_user(self.admin_user).write({'name': original_name + ' Updated'})
+        self.assertEqual(company.name, original_name + ' Updated')
+        company.with_user(self.admin_user).write({'name': original_name})
+
+        # Kill-switch off allows customer owner to write to synced fields
+        param_obj.set_param('planb.lock_settings', 'False')
+        company.with_user(self.customer_owner).write({'phone': '+1234567890'})
+        self.assertEqual(company.phone, '+1234567890')
+        param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_19_base_document_layout_wizard_saves(self):
+        """Test that Configure Document Layout wizard (base.document.layout) saves successfully for Owner."""
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # Owner opens base.document.layout wizard
+        wizard_model = self.env['base.document.layout'].with_user(self.customer_owner)
+        wizard = wizard_model.create({
+            'font': 'Roboto',
+            'primary_color': '#003366',
+            'secondary_color': '#336699',
+            'report_footer': '<p>Custom Document Footer</p>',
+        })
+        self.assertTrue(wizard.exists())
+
+        # Verify that changes were saved to res.company
+        company = self.env.company
+        self.assertEqual(company.font, 'Roboto')
+        self.assertEqual(company.primary_color, '#003366')
+        self.assertEqual(company.secondary_color, '#336699')
+
 
 
 
