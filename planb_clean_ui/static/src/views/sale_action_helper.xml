@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="planb_clean_ui.SaleActionHelper" t-inherit="sale.SaleActionHelper" t-inherit-mode="extension">
+        <xpath expr="//a[hasclass('o_sale_action_preview')]" position="replace">
+            <!-- Video preview thumbnail completely removed -->
+        </xpath>
+    </t>
+</templates>

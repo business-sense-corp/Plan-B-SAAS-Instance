@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 1. Repoint Quotations menu to clean standard action_quotations -->
+    <record id="sale.menu_sale_quotations" model="ir.ui.menu">
+        <field name="action" ref="sale.action_quotations"/>
+    </record>
+
+    <!-- 2. Clean action_quotations_with_onboarding view bindings and help -->
+    <record id="sale.action_quotations_with_onboarding" model="ir.actions.act_window">
+        <field name="view_id" ref="sale.view_quotation_tree"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new quotation
+            </p>
+            <p>
+                Track customer requests and confirm sales orders.
+            </p>
+        </field>
+    </record>
+
+    <record id="sale.sale_order_action_view_quotation_tree" model="ir.actions.act_window.view">
+        <field name="view_id" ref="sale.view_quotation_tree"/>
+    </record>
+
+    <record id="sale.sale_order_action_view_quotation_kanban" model="ir.actions.act_window.view">
+        <field name="view_id" ref="sale.view_sale_order_kanban"/>
+    </record>
+
+    <!-- 3. Clean action_quotations help -->
+    <record id="sale.action_quotations" model="ir.actions.act_window">
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new quotation
+            </p>
+            <p>
+                Track customer requests and confirm sales orders.
+            </p>
+        </field>
+    </record>
+
+    <!-- 4. Declarative sample="0" on core quotation list view -->
+    <record id="view_quotation_tree_clean" model="ir.ui.view">
+        <field name="name">sale.order.list.clean</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="sample">0</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- 5. Declarative sample="0" on core sale order kanban view -->
+    <record id="view_sale_order_kanban_clean" model="ir.ui.view">
+        <field name="name">sale.order.kanban.clean</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sale_order_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="sample">0</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>
