@@ -135,3 +135,30 @@ class TestTenantSettingsLock(TransactionCase):
         self.assertEqual(admin_ids_1, admin_ids_2, "Admin menus must be order-independent")
         self.assertEqual(owner_ids_1, owner_ids_2, "Owner menus must be order-independent")
 
+    def test_05_settings_view_field_and_inheritance(self):
+        """Test res.config.settings planb_hide_system_settings field and view attributes."""
+        settings_model = self.env['res.config.settings']
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # Compute field check for customer owner
+        owner_settings = settings_model.with_user(self.customer_owner).new()
+        self.assertTrue(owner_settings.planb_hide_system_settings)
+
+        # Compute field check for admin
+        admin_settings = settings_model.with_user(self.admin_user).new()
+        self.assertFalse(admin_settings.planb_hide_system_settings)
+
+        # When kill-switch is deactivated, owner compute field is False
+        param_obj.set_param('planb.lock_settings', 'False')
+        owner_settings_inactive = settings_model.with_user(self.customer_owner).new()
+        self.assertFalse(owner_settings_inactive.planb_hide_system_settings)
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # Check view inheritance arch
+        view = self.env.ref('planb_tenant_access.res_config_settings_view_form_inherit_planb', raise_if_not_found=False)
+        if view:
+            self.assertTrue(view.active)
+            self.assertEqual(view.inherit_id, self.env.ref('base_setup.res_config_settings_view_form'))
+
+
