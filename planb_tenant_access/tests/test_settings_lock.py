@@ -201,5 +201,40 @@ class TestTenantSettingsLock(TransactionCase):
         finally:
             _request_stack.pop()
 
+    def test_07_ir_config_parameter_protection_and_cache_invalidation(self):
+        """Test planb.* ir.config_parameter protection and cache invalidation."""
+        from odoo.exceptions import AccessError
+        param_model = self.env['ir.config_parameter']
+
+        # Ensure planb.lock_settings exists
+        param_model.sudo().set_param('planb.lock_settings', 'True')
+        param = param_model.sudo().search([('key', '=', 'planb.lock_settings')], limit=1)
+        self.assertTrue(param)
+
+        # 1. Customer owner cannot write to planb.* parameters
+        with self.assertRaises(AccessError):
+            param.with_user(self.customer_owner).write({'value': 'False'})
+
+        # Customer owner cannot unlink planb.* parameters
+        with self.assertRaises(AccessError):
+            param.with_user(self.customer_owner).unlink()
+
+        # Customer owner cannot create planb.* parameters
+        with self.assertRaises(AccessError):
+            param_model.with_user(self.customer_owner).create({'key': 'planb.custom_key', 'value': '123'})
+
+        # 2. Internal admin CAN write to planb.* parameters
+        param.with_user(self.admin_user).write({'value': 'True'})
+        self.assertEqual(param.value, 'True')
+
+        # 3. Cache invalidation on planb.lock_settings modification
+        self.env.registry.cache_invalidated.clear()
+        param.with_user(self.admin_user).write({'value': 'False'})
+        self.assertIn('default', self.env.registry.cache_invalidated)
+
+        # Restore
+        param.with_user(self.admin_user).write({'value': 'True'})
+
+
 
 
