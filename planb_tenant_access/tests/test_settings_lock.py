@@ -189,6 +189,11 @@ class TestTenantSettingsLock(TransactionCase):
         if view:
             self.assertTrue(view.active)
             self.assertEqual(view.inherit_id, self.env.ref('base_setup.res_config_settings_view_form'))
+            arch = view.arch
+            self.assertIn('open_company', arch)
+            self.assertIn('planb_dev_tools_block', arch)
+            self.assertIn('contacts_settings', arch)
+            self.assertIn('emails', arch)
 
     def test_06_debug_neutralization(self):
         """Test ir.http._handle_debug neutralization for non-internal identities."""

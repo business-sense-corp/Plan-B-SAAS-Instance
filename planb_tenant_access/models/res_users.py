@@ -92,10 +92,11 @@ class ResUsers(models.Model):
 
     @api.model
     def _planb_administrative_group_ids(self):
-        """Return IDs of administrative, technical, and package-managed groups."""
+        """Return IDs of administrative and technical groups."""
         xmlids = [
             'base.group_system',
             'base.group_erp_manager',
+            'base.group_no_one',
             'planb_tenant_access.group_planb_customer_admin',
         ]
         group_ids = set()
@@ -103,8 +104,6 @@ class ResUsers(models.Model):
             rec = self.env.ref(xmlid, raise_if_not_found=False)
             if rec and rec._name == 'res.groups':
                 group_ids.add(rec.id)
-        if 'planb.tenant.user.slot' in self.env:
-            group_ids.update(self.env['planb.tenant.user.slot']._managed_module_group_ids())
         return group_ids
 
     def write(self, vals):

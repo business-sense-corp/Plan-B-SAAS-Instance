@@ -14,10 +14,16 @@
             <xpath expr="//setting[@id='companies_setting']" position="attributes">
                 <attribute name="invisible">planb_hide_system_settings</attribute>
             </xpath>
+            <xpath expr="//button[@name='open_company']" position="attributes">
+                <attribute name="invisible">planb_hide_system_settings</attribute>
+            </xpath>
             <xpath expr="//setting[@id='inter_company']" position="attributes">
                 <attribute name="invisible">planb_hide_system_settings</attribute>
             </xpath>
-            <xpath expr="//block[@name='contacts_setting_container']" position="attributes">
+            <xpath expr="//div[@id='contacts_settings']" position="attributes">
+                <attribute name="invisible">planb_hide_system_settings</attribute>
+            </xpath>
+            <xpath expr="//*[@id='emails']" position="attributes">
                 <attribute name="invisible">planb_hide_system_settings</attribute>
             </xpath>
             <xpath expr="//block[@id='user_default_rights']" position="attributes">
@@ -29,8 +35,10 @@
             <xpath expr="//block[@name='performance']" position="attributes">
                 <attribute name="invisible">planb_hide_system_settings</attribute>
             </xpath>
-            <xpath expr="//widget[@name='res_config_dev_tool']" position="attributes">
-                <attribute name="invisible">planb_hide_system_settings</attribute>
+            <xpath expr="//widget[@name='res_config_dev_tool']" position="replace">
+                <div id="planb_dev_tools_block" invisible="planb_hide_system_settings">
+                    <widget name="res_config_dev_tool"/>
+                </div>
             </xpath>
         </field>
     </record>
