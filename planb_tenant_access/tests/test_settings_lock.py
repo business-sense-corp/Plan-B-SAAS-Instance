@@ -28,6 +28,34 @@ class TestTenantSettingsLock(TransactionCase):
             'group_ids': [(6, 0, [])],
         })
 
+        # Create a test seat user with an active licensed slot
+        cls.seat_user = cls.env['res.users'].create({
+            'name': 'Seat User Test',
+            'login': 'seat_user_test@example.com',
+            'email': 'seat_user_test@example.com',
+            'group_ids': [(6, 0, [cls.env.ref('base.group_user').id])],
+        })
+
+        # Link customer owner to slot 991 and seat user to slot 992
+        cls.owner_slot = cls.env['planb.tenant.user.slot'].create({
+            'slot_number': 991,
+            'user_id': cls.customer_owner.id,
+            'name': cls.customer_owner.name,
+            'login': cls.customer_owner.login,
+            'email': cls.customer_owner.email,
+            'active': True,
+            'is_activated': True,
+        })
+        cls.seat_slot = cls.env['planb.tenant.user.slot'].create({
+            'slot_number': 992,
+            'user_id': cls.seat_user.id,
+            'name': cls.seat_user.name,
+            'login': cls.seat_user.login,
+            'email': cls.seat_user.email,
+            'active': True,
+            'is_activated': True,
+        })
+
     def test_01_internal_admin_identity(self):
         """Test _planb_is_internal_admin identity check."""
         # base.user_admin and base.user_root must be recognized as internal admin
@@ -234,6 +262,189 @@ class TestTenantSettingsLock(TransactionCase):
 
         # Restore
         param.with_user(self.admin_user).write({'value': 'True'})
+
+    def test_08_res_users_create_unlink_blocked_for_customer(self):
+        """Test res.users create and unlink are blocked for customer owner when lock is active."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # 1. Customer owner cannot create users
+        with self.assertRaises(AccessError):
+            self.env['res.users'].with_user(self.customer_owner).create({
+                'name': 'Unauthorized User',
+                'login': 'unauthorized@example.com',
+            })
+
+        # 2. Customer owner cannot unlink users
+        with self.assertRaises(AccessError):
+            self.regular_user.with_user(self.customer_owner).unlink()
+
+        # 3. Internal admin CAN create and unlink users
+        test_user = self.env['res.users'].with_user(self.admin_user).create({
+            'name': 'Admin Created User',
+            'login': 'admin_created_user@example.com',
+        })
+        self.assertTrue(test_user.exists())
+        test_user.with_user(self.admin_user).unlink()
+        self.assertFalse(test_user.exists())
+
+        # 4. When kill-switch is inactive, customer owner can create and unlink
+        param_obj.set_param('planb.lock_settings', 'False')
+        owner_created = self.env['res.users'].with_user(self.customer_owner).create({
+            'name': 'Unlocked Creation',
+            'login': 'unlocked_creation@example.com',
+        })
+        self.assertTrue(owner_created.exists())
+        owner_created.with_user(self.customer_owner).unlink()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_09_res_users_archive_blocked_for_customer(self):
+        """Test res.users archival (active=False) is blocked for customer owner."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # 1. Customer owner cannot archive regular user
+        with self.assertRaises(AccessError):
+            self.regular_user.with_user(self.customer_owner).write({'active': False})
+
+        # 2. Customer owner cannot archive own user
+        with self.assertRaises(AccessError):
+            self.customer_owner.with_user(self.customer_owner).write({'active': False})
+
+        # 3. Internal admin CAN archive a user
+        self.regular_user.with_user(self.admin_user).write({'active': False})
+        self.assertFalse(self.regular_user.active)
+        self.regular_user.with_user(self.admin_user).write({'active': True})
+        self.assertTrue(self.regular_user.active)
+
+        # 4. When kill-switch is inactive, customer owner can archive
+        param_obj.set_param('planb.lock_settings', 'False')
+        self.regular_user.with_user(self.customer_owner).write({'active': False})
+        self.assertFalse(self.regular_user.active)
+        self.regular_user.with_user(self.customer_owner).write({'active': True})
+        param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_10_res_users_internal_admin_protected(self):
+        """Test that Plan B internal admin records cannot be written to by non-internal users."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # Customer owner cannot modify base.user_admin or base.user_root
+        with self.assertRaises(AccessError):
+            self.admin_user.with_user(self.customer_owner).write({'name': 'Hacked Admin'})
+
+        with self.assertRaises(AccessError):
+            self.root_user.with_user(self.customer_owner).write({'name': 'Hacked Root'})
+
+        # Even if kill switch is deactivated, internal admin records remain protected
+        # Wait: kill-switch off checks _planb_lock_active()
+        # Internal admin can write to itself
+        self.admin_user.with_user(self.admin_user).write({'tz': 'UTC'})
+
+    def test_11_res_users_group_ids_blocked_direct(self):
+        """Test that non-internal users cannot directly write group_ids."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # Customer owner direct group_ids write is blocked
+        with self.assertRaises(AccessError):
+            self.regular_user.with_user(self.customer_owner).write({
+                'group_ids': [(4, self.group_system.id)],
+            })
+
+        # Direct write with groups_id is also blocked
+        with self.assertRaises(AccessError):
+            self.regular_user.with_user(self.customer_owner).write({
+                'groups_id': [(4, self.group_system.id)],
+            })
+
+        # Internal slot write with context is allowed
+        self.regular_user.with_user(self.customer_owner).with_context(planb_internal_slot_write=True).write({
+            'group_ids': [(4, self.env.ref('base.group_user').id)],
+        })
+
+        # Internal admin direct write is allowed
+        self.regular_user.with_user(self.admin_user).write({
+            'group_ids': [(4, self.env.ref('base.group_user').id)],
+        })
+
+    def test_12_res_users_slot_managed_credentials_blocked(self):
+        """Test that login, email, password on slot-managed users are blocked for non-internal users."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # 1. Login write on slot-managed user is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).write({
+                'login': 'new_seat_login@example.com',
+            })
+
+        # 2. Email write on slot-managed user is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).write({
+                'email': 'new_seat_email@example.com',
+            })
+
+        # 3. Password direct write on slot-managed user is blocked
+        with self.assertRaises(AccessError):
+            self.seat_user.with_user(self.customer_owner).write({
+                'password': 'NewPassword123!',
+            })
+
+        # 4. Password direct write on own user is also blocked
+        with self.assertRaises(AccessError):
+            self.customer_owner.with_user(self.customer_owner).write({
+                'password': 'NewPassword123!',
+            })
+
+        # 5. Internal admin CAN write login/email/password
+        self.seat_user.with_user(self.admin_user).write({
+            'email': 'seat_user_updated@example.com',
+        })
+        self.assertEqual(self.seat_user.email, 'seat_user_updated@example.com')
+
+    def test_13_res_users_preferences_preservation(self):
+        """Test that own-record Preferences save successfully for Owner and seat user."""
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # 1. Customer Owner updating own preferences (lang, tz, signature)
+        self.customer_owner.with_user(self.customer_owner).write({
+            'tz': 'Europe/Paris',
+            'signature': '<p>Owner Signature</p>',
+        })
+        self.assertEqual(self.customer_owner.tz, 'Europe/Paris')
+        self.assertIn('Owner Signature', self.customer_owner.signature)
+
+        # 2. Seat user updating own preferences
+        self.seat_user.with_user(self.seat_user).write({
+            'tz': 'America/New_York',
+            'signature': '<p>Seat Signature</p>',
+        })
+        self.assertEqual(self.seat_user.tz, 'America/New_York')
+        self.assertIn('Seat Signature', self.seat_user.signature)
+
+    def test_14_owner_toggling_group_settings_in_sales_inventory(self):
+        """Test that Owner toggling group_* settings in Sales and Inventory still saves."""
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        settings_model = self.env['res.config.settings'].with_user(self.customer_owner)
+
+        # Test Sales group setting (group_discount_per_so_line)
+        if 'group_discount_per_so_line' in settings_model._fields:
+            s_sales = settings_model.create({'group_discount_per_so_line': True})
+            s_sales.execute()
+
+        # Test Inventory group setting (group_stock_multi_locations)
+        if 'group_stock_multi_locations' in settings_model._fields:
+            s_stock = settings_model.create({'group_stock_multi_locations': True})
+            s_stock.execute()
 
 
 

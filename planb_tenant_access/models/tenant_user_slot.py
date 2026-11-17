@@ -140,7 +140,7 @@ class PlanBTenantUserSlot(models.Model):
     def _apply_profile_to_user(self):
         for slot in self:
             slot._validate_customer_login(slot.login)
-            slot.user_id.sudo().write({
+            slot.user_id.sudo().with_context(planb_internal_slot_write=True).write({
                 'name': slot.name,
                 'login': slot.login.strip(),
                 'email': (slot.email or '').strip() or False,
@@ -181,7 +181,7 @@ class PlanBTenantUserSlot(models.Model):
             if slot.slot_number == 1 and customer_admin_group_id:
                 final_ids.add(customer_admin_group_id)
 
-            user.write({
+            user.with_context(planb_internal_slot_write=True).write({
                 'group_ids': [(6, 0, sorted(final_ids))],
                 'share': False,
                 'active': True,

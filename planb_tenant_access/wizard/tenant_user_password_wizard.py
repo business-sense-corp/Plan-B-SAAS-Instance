@@ -34,5 +34,5 @@ class PlanBTenantUserPasswordWizard(models.TransientModel):
             raise ValidationError(
                 _('The password must contain at least 8 characters.')
             )
-        slot.user_id.sudo().write({'password': self.new_password})
+        slot.user_id.sudo().with_context(planb_internal_slot_write=True).write({'password': self.new_password})
         return {'type': 'ir.actions.act_window_close'}
