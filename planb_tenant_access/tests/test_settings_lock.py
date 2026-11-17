@@ -771,6 +771,91 @@ class TestTenantSettingsLock(TransactionCase):
 
         param_obj.set_param('planb.lock_settings', 'True')
 
+    def test_22_res_groups_direct_write_and_unlink_blocked(self):
+        """Test that direct writes to res.groups (user_ids, admin groups, unlink, create)
+        are blocked for non-internal users to prevent privilege escalation."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        # 1. Customer owner cannot add users to base.group_system via user_ids
+        with self.assertRaises(AccessError):
+            self.group_system.with_user(self.customer_owner).write({
+                'user_ids': [(4, self.regular_user.id)],
+            })
+
+        # 2. Customer owner cannot modify administrative groups
+        with self.assertRaises(AccessError):
+            self.group_system.with_user(self.customer_owner).write({
+                'name': 'Hacked System Group',
+            })
+
+        # 3. Customer owner cannot delete groups
+        with self.assertRaises(AccessError):
+            self.group_system.with_user(self.customer_owner).unlink()
+
+        # 4. Customer owner cannot create groups
+        with self.assertRaises(AccessError):
+            self.env['res.groups'].with_user(self.customer_owner).create({
+                'name': 'Unauthorized Group',
+            })
+
+        # 5. Internal admin CAN modify groups
+        self.group_system.with_user(self.admin_user).write({
+            'comment': 'Admin updated group comment',
+        })
+        self.assertEqual(self.group_system.comment, 'Admin updated group comment')
+
+        # 6. Kill-switch off allows customer owner to modify groups
+        param_obj.set_param('planb.lock_settings', 'False')
+        self.group_system.with_user(self.customer_owner).write({
+            'comment': 'Unlocked owner comment',
+        })
+        self.assertEqual(self.group_system.comment, 'Unlocked owner comment')
+        param_obj.set_param('planb.lock_settings', 'True')
+
+    def test_23_company_partner_synced_fields_blocked(self):
+        """Test that res.partner writes to company.partner_id synced fields are blocked
+        for non-internal users, preventing company profile modification bypass."""
+        from odoo.exceptions import AccessError
+        param_obj = self.env['ir.config_parameter'].sudo()
+        param_obj.set_param('planb.lock_settings', 'True')
+
+        company_partner = self.env.company.partner_id
+
+        # 1. Writing to synced fields on company partner raises AccessError
+        for field in ['name', 'vat', 'email', 'phone', 'street', 'city', 'zip']:
+            if field in company_partner._fields:
+                with self.assertRaises(AccessError, msg=f"Writing to company partner {field} must raise AccessError"):
+                    company_partner.with_user(self.customer_owner).write({
+                        field: f"modified_{field}",
+                    })
+
+        # 2. Customer owner cannot unlink company partner
+        with self.assertRaises(AccessError):
+            company_partner.with_user(self.customer_owner).unlink()
+
+        # 3. Customer owner CAN write to ordinary non-company partner
+        regular_partner = self.regular_user.partner_id
+        regular_partner.with_user(self.customer_owner).write({
+            'name': 'Customer Contact Updated',
+            'phone': '+999888777',
+        })
+        self.assertEqual(regular_partner.name, 'Customer Contact Updated')
+
+        # 4. Internal admin CAN write to company partner
+        original_company_partner_name = company_partner.name
+        company_partner.with_user(self.admin_user).write({'name': original_company_partner_name + ' Admin'})
+        self.assertEqual(company_partner.name, original_company_partner_name + ' Admin')
+        company_partner.with_user(self.admin_user).write({'name': original_company_partner_name})
+
+        # 5. Kill-switch off allows customer owner to write to company partner
+        param_obj.set_param('planb.lock_settings', 'False')
+        company_partner.with_user(self.customer_owner).write({'phone': '+1987654321'})
+        self.assertEqual(company_partner.phone, '+1987654321')
+        param_obj.set_param('planb.lock_settings', 'True')
+
+
 
 
 

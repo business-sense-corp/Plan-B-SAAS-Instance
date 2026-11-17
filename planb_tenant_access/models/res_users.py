@@ -139,14 +139,22 @@ class ResUsers(models.Model):
                         'Please assign module permissions via Licensed User Slots.'
                     ))
 
-            # 4. Block login, email, password on slot-managed users (unless internal slot write or valid auth signup token)
-            if not self.env.context.get('planb_internal_slot_write'):
+            # 4. Block password writes directly for non-internal identities (unless valid token signup or internal slot write)
+            if 'password' in vals and not self.env.context.get('planb_internal_slot_write'):
                 valid_signup_partner = getattr(self.env.cr, 'planb_valid_signup_partner', None)
                 partner_ids = set(self.mapped('partner_id.id'))
                 is_valid_token_signup = valid_signup_partner is not None and valid_signup_partner in partner_ids
                 if is_valid_token_signup:
                     self.env.cr.planb_valid_signup_partner = None
 
+                if not is_valid_token_signup and not self.env.context.get('planb_auth_signup_flow') and not self.env.context.get('auth_signup_token'):
+                    raise AccessError(_(
+                        'Modifying passwords directly is not allowed. '
+                        'Please use the Plan B SaaS Portal.'
+                    ))
+
+            # 5. Block login, email on slot-managed users
+            if not self.env.context.get('planb_internal_slot_write'):
                 slot_user_ids = set(self.env['planb.tenant.user.slot'].sudo().search([
                     ('user_id', 'in', self.ids),
                     ('active', '=', True),
@@ -161,11 +169,6 @@ class ResUsers(models.Model):
                     if 'email' in vals and any((vals['email'] or False) != (u.email or False) for u in slot_users):
                         raise AccessError(_(
                             'Modifying email for slot-managed users is not allowed. '
-                            'Please use the Plan B SaaS Portal.'
-                        ))
-                    if 'password' in vals and not is_valid_token_signup and not self.env.context.get('planb_auth_signup_flow') and not self.env.context.get('auth_signup_token'):
-                        raise AccessError(_(
-                            'Modifying password for slot-managed users directly is not allowed. '
                             'Please use the Plan B SaaS Portal.'
                         ))
 
@@ -245,8 +248,76 @@ class ChangePasswordOwn(models.TransientModel):
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
+    def unlink(self):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            company_partner_ids = set(self.env['res.company'].sudo().search([]).mapped('partner_id.id'))
+            if any(p.id in company_partner_ids for p in self):
+                raise AccessError(_(
+                    "Deleting company partner directly in the tenant is not allowed. "
+                    "Please manage company profiles in the Plan B SaaS Portal."
+                ))
+        return super().unlink()
+
     def write(self, vals):
         if 'signup_type' in vals and not vals['signup_type']:
             for partner in self:
                 partner.env.cr.planb_valid_signup_partner = partner.id
+
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            company_partner_ids = set(self.env['res.company'].sudo().search([]).mapped('partner_id.id'))
+            affected_company_partners = self.filtered(lambda p: p.id in company_partner_ids)
+            if affected_company_partners:
+                from .res_company import SYNCED_COMPANY_FIELDS
+                for field in SYNCED_COMPANY_FIELDS:
+                    if field in vals and field in self._fields:
+                        for partner in affected_company_partners:
+                            current_val = partner[field]
+                            new_val = vals[field]
+                            if hasattr(current_val, 'id'):
+                                current_val = current_val.id or False
+                                new_val = new_val or False
+                            else:
+                                current_val = (current_val or '').strip() if isinstance(current_val, str) else (current_val or False)
+                                new_val = (new_val or '').strip() if isinstance(new_val, str) else (new_val or False)
+                            if current_val != new_val:
+                                raise AccessError(_(
+                                    "Modifying company details (%s) directly in the tenant is not allowed. "
+                                    "These fields are synchronized from your Plan B SaaS Portal. "
+                                    "Please update your company details in the portal."
+                                ) % field)
         return super().write(vals)
+
+
+class ResGroups(models.Model):
+    _inherit = 'res.groups'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Creating user groups directly in the tenant is not allowed.'
+            ))
+        return super().create(vals_list)
+
+    def unlink(self):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            raise AccessError(_(
+                'Deleting user groups directly in the tenant is not allowed.'
+            ))
+        return super().unlink()
+
+    def write(self, vals):
+        if self.env.user._planb_lock_active() and not self.env.user._planb_is_internal_admin():
+            if not self.env.context.get('planb_internal_slot_write'):
+                admin_group_ids = self.env['res.users']._planb_administrative_group_ids()
+                if any(group.id in admin_group_ids for group in self):
+                    raise AccessError(_(
+                        'Modifying administrative or technical user groups directly is not allowed.'
+                    ))
+                if 'user_ids' in vals or 'all_user_ids' in vals or 'users' in vals:
+                    raise AccessError(_(
+                        'Modifying group user assignments directly is not allowed. '
+                        'Please assign module permissions via Licensed User Slots.'
+                    ))
+        return super().write(vals)
+
