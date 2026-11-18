@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Support Request Customer Confirmation Email Template -->
+        <record id="email_template_support_request_customer" model="mail.template">
+            <field name="name">Plan B: Support Request Customer Confirmation</field>
+            <field name="model_id" ref="cybrosys_support_client.model_client_support" />
+            <field name="subject">Plan B | We Received Your Support Request — [{{ object.ticket_id or ctx.get('ticket_id') }}]</field>
+            <field name="partner_to" eval="False" />
+            <field name="use_default_to" eval="False" />
+            <field name="auto_delete" eval="False" />
+            <field name="body_html" type="html">
+                <div style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+                        style="width:100%;background-color:#f4f6f8;padding:28px 12px;">
+                        <tr>
+                            <td align="center">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="640"
+                                    style="width:100%;max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+                                    <!-- Header -->
+                                    <tr>
+                                        <td style="padding:28px 32px;background:#111827;color:#ffffff;">
+                                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td style="vertical-align:middle;">
+                                                        <div style="font-size:24px;font-weight:700;letter-spacing:.2px;">Plan B</div>
+                                                        <div style="font-size:13px;color:#d1d5db;margin-top:4px;">Customer Support Desk</div>
+                                                    </td>
+                                                    <td align="right" style="font-size:13px;color:#d1d5db;vertical-align:middle;">
+                                                        Ticket <strong style="color:#ffffff;"><t t-out="object.ticket_id or ctx.get('ticket_id') or ''">CYB-001</t></strong>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Body -->
+                                    <tr>
+                                        <td style="padding:32px;">
+                                            <p style="margin:0 0 10px;font-size:20px;font-weight:700;color:#111827;">
+                                                Hello <t t-out="object.name or 'Customer'">Customer</t>,
+                                            </p>
+                                            <div style="display:inline-block;padding:6px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;color:#1e40af;font-size:13px;font-weight:600;margin-bottom:18px;">
+                                                ✓ Support Request Registered Successfully
+                                            </div>
+                                            <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#4b5563;">
+                                                We have received your support request. Our engineering team has logged your inquiry under ticket reference <strong><t t-out="object.ticket_id or ctx.get('ticket_id') or ''">CYB-001</t></strong>. A support specialist will review your issue and respond promptly.
+                                            </p>
+
+                                            <!-- Ticket Details -->
+                                            <div style="font-size:13px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+                                                Ticket Summary
+                                            </div>
+                                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                                                style="border-collapse:collapse;margin-bottom:24px;">
+                                                <tr>
+                                                    <td style="padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:38%;">Reference</td>
+                                                    <td style="padding:10px 12px;border:1px solid #e5e7eb;font-size:13px;font-weight:700;color:#111827;font-family:monospace;">
+                                                        <t t-out="object.ticket_id or ctx.get('ticket_id') or ''">CYB-001</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Subject</td>
+                                                    <td style="padding:10px 12px;border:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#111827;">
+                                                        <t t-out="object.subject or ''">Issue summary</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Category</td>
+                                                    <td style="padding:10px 12px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="dict(object._fields['category'].selection).get(object.category, object.category or '')">Bug</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Priority</td>
+                                                    <td style="padding:10px 12px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="dict(object._fields['priority'].selection).get(object.priority, object.priority or '')">Normal</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Support Type</td>
+                                                    <td style="padding:10px 12px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="dict(object._fields['support_type'].selection).get(object.support_type, object.support_type or '')">Technical</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Status</td>
+                                                    <td style="padding:10px 12px;border:1px solid #e5e7eb;font-size:13px;font-weight:600;color:#2563eb;">
+                                                        Received / In Queue
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            <!-- Description snippet if present -->
+                                            <t t-if="object.description">
+                                                <div style="font-size:13px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+                                                    Submitted Description
+                                                </div>
+                                                <div style="padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;line-height:1.6;color:#374151;margin-bottom:24px;white-space:pre-wrap;">
+                                                    <t t-out="object.description">Description text</t>
+                                                </div>
+                                            </t>
+
+                                            <!-- Action Button -->
+                                            <div style="text-align:center;margin:8px 0 24px;" t-if="ctx.get('track_url')">
+                                                <a t-att-href="ctx.get('track_url')"
+                                                    style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:13px 28px;border-radius:7px;">
+                                                    Track Your Ticket Online
+                                                </a>
+                                            </div>
+
+                                            <p t-if="ctx.get('track_url')"
+                                                style="margin:0;font-size:12px;line-height:1.7;color:#9ca3af;word-break:break-all;text-align:center;">
+                                                Tracking URL:<br />
+                                                <a t-att-href="ctx.get('track_url')" style="color:#2563eb;text-decoration:none;">
+                                                    <t t-out="ctx.get('track_url')">https://support.cybrosys.com/track-ticket</t>
+                                                </a>
+                                            </p>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td style="padding:18px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:11px;line-height:1.6;color:#9ca3af;text-align:center;">
+                                            Please retain this email and reference <strong><t t-out="object.ticket_id or ctx.get('ticket_id') or ''">CYB-001</t></strong> when communicating with our support engineers.<br/>
+                                            Plan B SaaS Support Desk • <a href="mailto:helloplanbhub@gmail.com" style="color:#6b7280;text-decoration:none;">helloplanbhub@gmail.com</a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </field>
+        </record>
+
+        <!-- Support Request Internal Notification Email Template -->
+        <record id="email_template_support_request_internal" model="mail.template">
+            <field name="name">Plan B: Support Request Internal Notification</field>
+            <field name="model_id" ref="cybrosys_support_client.model_client_support" />
+            <field name="subject">[Plan B Support Alert] New Ticket: [{{ object.ticket_id or ctx.get('ticket_id') }}] {{ object.subject }}</field>
+            <field name="partner_to" eval="False" />
+            <field name="use_default_to" eval="False" />
+            <field name="auto_delete" eval="False" />
+            <field name="body_html" type="html">
+                <div style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+                        style="width:100%;background-color:#f4f6f8;padding:28px 12px;">
+                        <tr>
+                            <td align="center">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="640"
+                                    style="width:100%;max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+                                    <!-- Header -->
+                                    <tr>
+                                        <td style="padding:22px 28px;background:#b91c1c;color:#ffffff;">
+                                            <div style="font-size:20px;font-weight:700;">Internal Support Alert</div>
+                                            <div style="font-size:13px;color:#fecaca;margin-top:2px;">New customer ticket submitted from tenant</div>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Body -->
+                                    <tr>
+                                        <td style="padding:28px;">
+                                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                                                style="border-collapse:collapse;margin-bottom:20px;">
+                                                <tr>
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;width:30%;">Ticket Reference</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:14px;font-weight:700;color:#111827;font-family:monospace;">
+                                                        <t t-out="object.ticket_id or ctx.get('ticket_id') or ''">CYB-001</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Customer Name</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="object.name or ''">Name</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Customer Email</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <a t-att-href="'mailto:' + (object.email or '')" style="color:#2563eb;text-decoration:none;">
+                                                            <t t-out="object.email or ''">email@example.com</t>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                                <tr t-if="object.phone">
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Phone</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="object.phone or ''">Phone</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Priority</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:13px;font-weight:700;color:#b91c1c;">
+                                                        <t t-out="dict(object._fields['priority'].selection).get(object.priority, object.priority or '')">Normal</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Category</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="dict(object._fields['category'].selection).get(object.category, object.category or '')">Bug</t>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;font-size:13px;color:#6b7280;">Support Type</td>
+                                                    <td style="padding:8px 10px;border:1px solid #e5e7eb;font-size:13px;color:#111827;">
+                                                        <t t-out="dict(object._fields['support_type'].selection).get(object.support_type, object.support_type or '')">Technical</t>
+                                                    </td>
+                                                </tr>
+                                            </table>
+
+                                            <div style="font-size:13px;font-weight:700;color:#6b7280;text-transform:uppercase;margin-bottom:8px;">
+                                                Subject &amp; Issue Details
+                                            </div>
+                                            <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:8px;">
+                                                <t t-out="object.subject or ''">Subject</t>
+                                            </div>
+                                            <div style="padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;line-height:1.6;color:#374151;white-space:pre-wrap;">
+                                                <t t-out="object.description or 'No description provided.'">Description</t>
+                                            </div>
+
+                                            <t t-if="object.attachment_ids">
+                                                <div style="margin-top:14px;font-size:12px;color:#6b7280;">
+                                                    Attachments (<t t-out="len(object.attachment_ids)">0</t>):
+                                                    <t t-foreach="object.attachment_ids" t-as="att">
+                                                        <span style="display:inline-block;background:#e5e7eb;padding:2px 8px;border-radius:4px;margin:2px;color:#1f2937;">
+                                                            <t t-out="att.name">file.png</t>
+                                                        </span>
+                                                    </t>
+                                                </div>
+                                            </t>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Footer -->
+                                    <tr>
+                                        <td style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;">
+                                            Plan B SaaS Internal Ticket Notification Dispatcher • <a href="mailto:helloplanbhub@gmail.com" style="color:#6b7280;text-decoration:none;">helloplanbhub@gmail.com</a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </field>
+        </record>
+    </data>
+</odoo>
