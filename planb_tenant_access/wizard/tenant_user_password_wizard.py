@@ -2,6 +2,8 @@
 from odoo import fields, models, _
 from odoo.exceptions import AccessError, ValidationError
 
+from ..models.res_users import internal_slot_scope
+
 
 class PlanBTenantUserPasswordWizard(models.TransientModel):
     _name = 'planb.tenant.user.password.wizard'
@@ -24,8 +26,10 @@ class PlanBTenantUserPasswordWizard(models.TransientModel):
             raise ValidationError(
                 _('This user has an active account. Password changes must be performed through the invitation link or portal security.')
             )
-        if not self.env.user.has_group(
-            'planb_tenant_access.group_planb_customer_admin'
+        if not (
+            self.env.user.has_group('planb_tenant_access.group_planb_customer_admin')
+            or self.env.user.has_group('base.group_system')
+            or self.env.user._planb_is_internal_admin()
         ):
             raise AccessError(_('Only the customer administrator can do this.'))
         if self.new_password != self.confirm_password:
@@ -34,5 +38,6 @@ class PlanBTenantUserPasswordWizard(models.TransientModel):
             raise ValidationError(
                 _('The password must contain at least 8 characters.')
             )
-        slot.user_id.sudo().write({'password': self.new_password})
+        with internal_slot_scope(self.env.cr):
+            slot.user_id.sudo().write({'password': self.new_password})
         return {'type': 'ir.actions.act_window_close'}
