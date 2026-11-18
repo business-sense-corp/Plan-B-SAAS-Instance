@@ -18,6 +18,17 @@ SYNCED_COMPANY_FIELDS = {
 }
 
 
+def _normalize_synced_value(val):
+    if hasattr(val, 'id'):
+        return val.id or False
+    if isinstance(val, (int, float)):
+        return val or False
+    if isinstance(val, str):
+        cleaned = val.strip()
+        return cleaned if cleaned else False
+    return val or False
+
+
 class ResCompany(models.Model):
     _inherit = 'res.company'
 
@@ -52,15 +63,9 @@ class ResCompany(models.Model):
                 ))
             for field in SYNCED_COMPANY_FIELDS:
                 if field in vals and field in self._fields:
+                    new_val = _normalize_synced_value(vals[field])
                     for company in self:
-                        current_val = company[field]
-                        new_val = vals[field]
-                        if hasattr(current_val, 'id'):
-                            current_val = current_val.id or False
-                            new_val = new_val or False
-                        else:
-                            current_val = (current_val or '').strip() if isinstance(current_val, str) else (current_val or False)
-                            new_val = (new_val or '').strip() if isinstance(new_val, str) else (new_val or False)
+                        current_val = _normalize_synced_value(company[field])
                         if current_val != new_val:
                             raise AccessError(_(
                                 "Modifying company details (%s) directly in the tenant is not allowed. "

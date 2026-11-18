@@ -287,18 +287,12 @@ class ResPartner(models.Model):
                         "Archiving company partner directly in the tenant is not allowed. "
                         "Please manage company profiles in the Plan B SaaS Portal."
                     ))
-                from .res_company import SYNCED_COMPANY_FIELDS
+                from .res_company import SYNCED_COMPANY_FIELDS, _normalize_synced_value
                 for field in SYNCED_COMPANY_FIELDS:
                     if field in vals and field in self._fields:
+                        new_val = _normalize_synced_value(vals[field])
                         for partner in affected_company_partners:
-                            current_val = partner[field]
-                            new_val = vals[field]
-                            if hasattr(current_val, 'id'):
-                                current_val = current_val.id or False
-                                new_val = new_val or False
-                            else:
-                                current_val = (current_val or '').strip() if isinstance(current_val, str) else (current_val or False)
-                                new_val = (new_val or '').strip() if isinstance(new_val, str) else (new_val or False)
+                            current_val = _normalize_synced_value(partner[field])
                             if current_val != new_val:
                                 raise AccessError(_(
                                     "Modifying company details (%s) directly in the tenant is not allowed. "

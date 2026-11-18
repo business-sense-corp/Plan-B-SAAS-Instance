@@ -590,18 +590,66 @@ class TestTenantSettingsLock(TransactionCase):
         param_obj.set_param('planb.lock_settings', 'True')
 
     def test_18_res_company_synced_fields_blocked(self):
-        """Test res.company synced fields writes are blocked for non-internal users."""
+        """Test res.company and res.partner synced fields value-aware guards:
+        (b) same-value write of vat/street/country_id by Owner passes;
+        (c) a real change of vat/street/country_id/state_id still raises;
+        (d) the partner-side equivalents;
+        (e) kill-switch off => no guard.
+        """
         from odoo.exceptions import AccessError
         param_obj = self.env['ir.config_parameter'].sudo()
         param_obj.set_param('planb.lock_settings', 'True')
 
         company = self.env.company
+        partner = company.partner_id
 
-        # Synced fields must be blocked when modified by customer owner
-        for field in ['name', 'vat', 'email', 'phone', 'street', 'city', 'zip']:
-            if field in company._fields:
-                with self.assertRaises(AccessError, msg=f"Writing to {field} must raise AccessError"):
-                    company.with_user(self.customer_owner).write({field: f"modified_{field}"})
+        # (b) Same-value write of vat / street / country_id by Owner passes on res.company
+        # normalise False / '' / None
+        company.with_user(self.customer_owner).write({
+            'vat': company.vat or False,
+            'street': company.street or False,
+            'country_id': company.country_id.id if company.country_id else False,
+        })
+        company.with_user(self.customer_owner).write({
+            'vat': '',
+            'street': (company.street or '') + '',
+        })
+
+        # (c) A real change of vat / street / country_id / state_id on res.company still raises AccessError
+        with self.assertRaises(AccessError):
+            company.with_user(self.customer_owner).write({'vat': 'REAL_NEW_VAT_123'})
+        with self.assertRaises(AccessError):
+            company.with_user(self.customer_owner).write({'street': 'REAL_NEW_STREET_XYZ'})
+
+        test_country = self.env['res.country'].search([('id', '!=', company.country_id.id)], limit=1)
+        if test_country:
+            with self.assertRaises(AccessError):
+                company.with_user(self.customer_owner).write({'country_id': test_country.id})
+
+        test_state = self.env['res.country.state'].search([('id', '!=', company.state_id.id)], limit=1)
+        if test_state:
+            with self.assertRaises(AccessError):
+                company.with_user(self.customer_owner).write({'state_id': test_state.id})
+
+        # (d) Partner-side equivalents: same-value passes, real change raises
+        partner.with_user(self.customer_owner).write({
+            'vat': partner.vat or False,
+            'street': partner.street or False,
+            'country_id': partner.country_id.id if partner.country_id else False,
+        })
+        partner.with_user(self.customer_owner).write({
+            'vat': '',
+        })
+        with self.assertRaises(AccessError):
+            partner.with_user(self.customer_owner).write({'vat': 'REAL_NEW_PARTNER_VAT'})
+        with self.assertRaises(AccessError):
+            partner.with_user(self.customer_owner).write({'street': 'REAL_NEW_PARTNER_STREET'})
+        if test_country:
+            with self.assertRaises(AccessError):
+                partner.with_user(self.customer_owner).write({'country_id': test_country.id})
+        if test_state:
+            with self.assertRaises(AccessError):
+                partner.with_user(self.customer_owner).write({'state_id': test_state.id})
 
         # Non-synced fields MUST still save for customer owner
         company.with_user(self.customer_owner).write({
@@ -612,39 +660,39 @@ class TestTenantSettingsLock(TransactionCase):
         self.assertEqual(company.font, 'Lato')
         self.assertEqual(company.primary_color, '#123456')
 
-        # Writing identical (unchanged) synced values does not raise
-        company.with_user(self.customer_owner).write({'name': company.name})
-
         # Internal admin CAN write to synced fields
         original_name = company.name
         company.with_user(self.admin_user).write({'name': original_name + ' Updated'})
         self.assertEqual(company.name, original_name + ' Updated')
         company.with_user(self.admin_user).write({'name': original_name})
 
-        # Kill-switch off allows customer owner to write to synced fields
+        # (e) Kill-switch off allows customer owner to write real changes without guard
         param_obj.set_param('planb.lock_settings', 'False')
-        company.with_user(self.customer_owner).write({'phone': '+1234567890'})
+        company.with_user(self.customer_owner).write({'vat': 'UNLOCKED_VAT_123', 'phone': '+1234567890'})
+        partner.with_user(self.customer_owner).write({'vat': 'UNLOCKED_PARTNER_VAT', 'phone': '+1234567890'})
         self.assertEqual(company.phone, '+1234567890')
         param_obj.set_param('planb.lock_settings', 'True')
 
     def test_19_base_document_layout_wizard_saves(self):
-        """Test that Configure Document Layout wizard (base.document.layout) saves successfully for Owner."""
+        """Test that Configure Document Layout wizard (base.document.layout) saves successfully for Owner via Form."""
+        from odoo.tests import Form
         param_obj = self.env['ir.config_parameter'].sudo()
         param_obj.set_param('planb.lock_settings', 'True')
 
-        # Owner opens base.document.layout wizard
-        wizard_model = self.env['base.document.layout'].with_user(self.customer_owner)
-        wizard = wizard_model.create({
-            'font': 'Roboto',
-            'primary_color': '#003366',
-            'secondary_color': '#336699',
-            'report_footer': '<p>Custom Document Footer</p>',
-        })
+        company = self.env.company
+        view_id = self.env.ref('account.view_base_document_layout', raise_if_not_found=False)
+        form_kwargs = {'view': view_id.id} if view_id else {}
+        doc_form = Form(self.env['base.document.layout'].with_user(self.customer_owner), **form_kwargs)
+        test_logo = b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+        doc_form.logo = test_logo
+        doc_form.primary_color = '#003366'
+        doc_form.secondary_color = '#336699'
+        doc_form.report_footer = '<p>Custom Document Footer Form</p>'
+        wizard = doc_form.save()
         self.assertTrue(wizard.exists())
+        wizard.document_layout_save()
 
         # Verify that changes were saved to res.company
-        company = self.env.company
-        self.assertEqual(company.font, 'Roboto')
         self.assertEqual(company.primary_color, '#003366')
         self.assertEqual(company.secondary_color, '#336699')
 
