@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="discuss_public_channel_template_planb" inherit_id="mail.discuss_public_channel_template" priority="99">
+        <xpath expr="//title" position="replace">
+            <title t-esc="title or 'Plan B'"/>
+        </xpath>
+    </template>
+</odoo>

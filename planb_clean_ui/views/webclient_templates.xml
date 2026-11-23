@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Remove PWA web manifest link from backend webclient to eliminate Chrome/desktop/mobile PWA install prompt -->
+    <template id="webclient_bootstrap_no_pwa" inherit_id="web.webclient_bootstrap" name="Remove PWA Manifest Link" priority="99">
+        <xpath expr="//link[@rel='manifest']" position="replace"/>
+    </template>
+
+    <!-- Remove PWA web manifest link from scoped app webclient -->
+    <template id="webclient_scoped_app_no_pwa" inherit_id="web.webclient_scoped_app" name="Remove Scoped App PWA Manifest Link" priority="99">
+        <xpath expr="//link[@rel='manifest']" position="replace"/>
+    </template>
+</odoo>
