@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Update General channel welcome message subject -->
+    <record id="mail.module_install_notification" model="mail.message">
+        <field name="subject">Welcome to Plan B!</field>
+    </record>
+
+    <!-- Update Discuss notification security group name -->
+    <record id="mail.group_mail_notification_type_inbox" model="res.groups">
+        <field name="name">Receive notifications in Plan B</field>
+    </record>
+</odoo>

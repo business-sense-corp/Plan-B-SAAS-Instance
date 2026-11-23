@@ -1,0 +1,103 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* planb_clean_ui
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-22 14:00+0000\n"
+"PO-Revision-Date: 2026-11-22 14:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Arabic (World)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ar_001\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+#. module: planb_clean_ui
+#: model:ir.model.fields.selection,name:planb_clean_ui.selection__res_users__notification_type__inbox
+msgid "In Plan B"
+msgstr "في Plan B"
+
+#. module: planb_clean_ui
+#: model:ir.model.fields,help:planb_clean_ui.field_res_users__notification_type
+msgid ""
+"Policy on how to handle Chatter notifications:\n"
+"- By Emails: notifications are sent to your email address\n"
+"- In Plan B: notifications appear in your Plan B Inbox"
+msgstr ""
+"سياسة التعامل مع إشعارات المحادثة:\n"
+"- عبر البريد الإلكتروني: تُرسل الإشعارات إلى عنوان بريدك الإلكتروني\n"
+"- في Plan B: تظهر الإشعارات في صندوق وارد Plan B الخاص بك"
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/res_users.py:0
+msgid "Hello,"
+msgstr "مرحبًا،"
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/res_users.py:0
+msgid ""
+"Plan B's chat helps employees collaborate efficiently. I'm here to help you "
+"discover its features."
+msgstr ""
+"يساعد تطبيق الدردشة في Plan B الموظفين على التعاون بكفاءة. أنا هنا لمساعدتك على استكشاف خصائصه."
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/res_users.py:0
+msgid "Try to send me an emoji"
+msgstr "جرب أن ترسل وجهاً باسماً لي"
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/mail_bot.py:0
+msgid ""
+"Sorry, I'm just a chatbot and I didn't understand that message. If you need "
+"help, please contact the Plan B support team."
+msgstr ""
+"للأسف، أنا مجرد روبوت دردشة ولا أفهم هذه الرسالة. إذا كنت بحاجة إلى مساعدة، يرجى التواصل مع فريق الدعم في Plan B."
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/mail_bot.py:0
+msgid ""
+"That’s the end of this overview. You can %(bold_start)sclose this "
+"conversation%(bold_end)s or type %(command_start)sstart the "
+"tour%(command_end)s to see it again. Enjoy exploring Plan B!"
+msgstr ""
+"هذه نهاية هذه النظرة العامة. يمكنك %(bold_start)sإغلاق هذه المحادثة%(bold_end)s أو كتابة %(command_start)sبدء الجولة%(command_end)s لرؤيتها مجدداً. استمتع باستكشاف Plan B!"
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/mail_bot.py:0
+msgid ""
+"Wow you are a natural!%(new_line)sPing someone with @username to grab their "
+"attention. %(bold_start)sTry to ping me using%(bold_end)s "
+"%(command_start)s@PlanbBot%(command_end)s in a sentence."
+msgstr ""
+"يا لك من بارع!%(new_line)sقم بذكر أحدهم باستخدام @username للفت انتباهه. %(bold_start)sحاول أن تقوم بذكري باستخدام%(bold_end)s %(command_start)s@PlanbBot%(command_end)s في جملة."
+
+#. module: planb_clean_ui
+#. odoo-python
+#: code:addons/planb_clean_ui/models/mail_bot.py:0
+msgid ""
+"Sorry, I am not listening. To get someone's attention, %(bold_start)sping "
+"them%(bold_end)s. Write %(command_start)s@PlanbBot%(command_end)s and select "
+"me."
+msgstr ""
+"عذراً، لم أكن أنصت إليك. للفت انتباه أحدهم، %(bold_start)sقم بذكره%(bold_end)s. اكتب %(command_start)s@PlanbBot%(command_end)s وحددني."
+
+#. module: planb_clean_ui
+#: model:ir.model.fields,field_description:planb_clean_ui.field_res_users__odoobot_state
+msgid "PlanbBot Status"
+msgstr "حالة PlanbBot"
+
+#. module: planb_clean_ui
+#: model:res.groups,name:planb_clean_ui.group_mail_notification_type_inbox
+msgid "Receive notifications in Plan B"
+msgstr "استلام الإشعارات في Plan B"
