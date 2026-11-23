@@ -152,3 +152,4 @@ cython_debug/
 *.dump
 *.sql
 odoo.conf.local
+*.pyc

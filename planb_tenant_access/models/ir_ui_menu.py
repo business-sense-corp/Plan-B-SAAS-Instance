@@ -21,6 +21,36 @@ class IrUiMenu(models.Model):
 
         return result
 
+    def _load_menus_blacklist(self):
+        """Subtract dangerous subtrees (Apps, Users & Companies, Technical)
+        for non-internal identities when settings lock is active.
+        """
+        res = super()._load_menus_blacklist()
+        user = self.env.user
+        if not user._planb_is_internal_admin() and user._planb_lock_active():
+            dangerous_xmlids = [
+                'base.menu_management',
+                'base.menu_apps',
+                'base.menu_users',
+                'base.menu_custom',
+            ]
+            dangerous_roots = []
+            for xmlid in dangerous_xmlids:
+                menu = self.env.ref(xmlid, raise_if_not_found=False)
+                if menu:
+                    dangerous_roots.append(menu.id)
+            if dangerous_roots:
+                res.extend(self._planb_menu_and_descendant_ids(dangerous_roots))
+        return list(set(res))
+
+    def get_user_roots(self):
+        """Ensure blacklisted root menus are also excluded when loading user root menus."""
+        roots = super().get_user_roots()
+        blacklist = set(self._load_menus_blacklist())
+        if blacklist:
+            roots = roots.filtered(lambda m: m.id not in blacklist)
+        return roots
+
     @api.model
     def _visible_menu_ids(self, debug=False):
         visible_ids = set(super()._visible_menu_ids(debug=debug))
