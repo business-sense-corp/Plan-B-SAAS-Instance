@@ -1,10 +1,13 @@
 {
     'name': 'Custom URL Rewrite',
     'version': '19.0.1.0.0',
-    'category': 'Website',
+    'category': 'Technical',
     'summary': 'Remove /odoo prefix from backend action URLs',
     'license': 'LGPL-3',
-    'depends': ['web', 'mail', 'contacts', 'website'],
+    # Ticket BS-0034: Do NOT depend on 'website'.
+    # The 'website' link field on res.partner (customized in chage_website.xml)
+    # is defined in Odoo core 'base' (base.view_partner_form), provided via 'contacts'.
+    'depends': ['web', 'mail', 'contacts'],
     'data': [
         "data/hide_menu_data.xml",
         "data/hide_url_early.xml",
