@@ -4,27 +4,43 @@
         <xpath expr="//head" position="inside">
             <script type="text/javascript">
                 (function () {
-                    // 1. تنظيف برامتر الـ redirect من الـ Query String (زي صفحة اللوجين)
+                    function normalizeOdooPath(val) {
+                        if (!val || typeof val !== 'string') {
+                            return val;
+                        }
+                        if (val === '/odoo' || val === '/odoo/' || val === '/odoo?') {
+                            return '/';
+                        }
+                        if (val.startsWith('/odoo?')) {
+                            return '/' + val.slice(5);
+                        }
+                        if (val.startsWith('/odoo#')) {
+                            return '/' + val.slice(5);
+                        }
+                        if (val.startsWith('/odoo/')) {
+                            return val.replace(/^\/odoo\//, '/');
+                        }
+                        return val;
+                    }
+
+                    // 1. Clean redirect param from Query String (e.g. /web/login?redirect=/odoo?)
                     try {
                         const urlObj = new URL(window.location.href);
                         let updated = false;
 
                         if (urlObj.searchParams.has('redirect')) {
-                            let redirectVal = urlObj.searchParams.get('redirect');
-                            if (redirectVal.startsWith('/odoo')) {
-                                redirectVal = redirectVal.replace(/^\/odoo/, '') || '/';
-                                urlObj.searchParams.set('redirect', redirectVal);
+                            const redirectVal = urlObj.searchParams.get('redirect');
+                            const cleanedRedirect = normalizeOdooPath(redirectVal);
+                            if (cleanedRedirect !== redirectVal) {
+                                urlObj.searchParams.set('redirect', cleanedRedirect);
                                 updated = true;
                             }
                         }
 
-                        // 2. تنظيف الـ Path نفسه لو بيبدأ بـ /odoo
-                        if (urlObj.pathname.startsWith('/odoo')) {
-                            if (urlObj.pathname === '/odoo' || urlObj.pathname === '/odoo/') {
-                                urlObj.pathname = '/';
-                            } else {
-                                urlObj.pathname = urlObj.pathname.replace(/^\/odoo\//, '/');
-                            }
+                        // 2. Clean the Path itself if starting with /odoo
+                        const cleanedPath = normalizeOdooPath(urlObj.pathname);
+                        if (cleanedPath !== urlObj.pathname) {
+                            urlObj.pathname = cleanedPath;
                             updated = true;
                         }
 
@@ -33,26 +49,30 @@
                         }
                     } catch (e) {}
 
-                    // 3. Patch للـ History API عشان الملاحة مستقبلاً
+                    // 3. Patch History API for client-side navigation
                     function stripOdooPrefix(url) {
                         if (!url) return url;
                         try {
                             const isAbsolute = /^https?:\/\//i.test(url);
                             const base = isAbsolute ? undefined : window.location.origin;
                             const parsed = new URL(url, base);
+                            let changed = false;
 
                             if (parsed.searchParams.has('redirect')) {
-                                let rVal = parsed.searchParams.get('redirect');
-                                if (rVal.startsWith('/odoo')) {
-                                    parsed.searchParams.set('redirect', rVal.replace(/^\/odoo/, '') || '/');
+                                const rVal = parsed.searchParams.get('redirect');
+                                const cleanedRVal = normalizeOdooPath(rVal);
+                                if (cleanedRVal !== rVal) {
+                                    parsed.searchParams.set('redirect', cleanedRVal);
+                                    changed = true;
                                 }
                             }
 
-                            if (parsed.pathname === '/odoo' || parsed.pathname === '/odoo/') {
-                                parsed.pathname = '/';
-                            } else if (parsed.pathname.startsWith('/odoo/')) {
-                                parsed.pathname = parsed.pathname.replace(/^\/odoo\//, '/');
-                            } else {
+                            const cleanedPathname = normalizeOdooPath(parsed.pathname);
+                            if (cleanedPathname !== parsed.pathname) {
+                                parsed.pathname = cleanedPathname;
+                                changed = true;
+                            }
+                            if (!changed) {
                                 return url;
                             }
                             return isAbsolute ? parsed.toString() : parsed.pathname + parsed.search + parsed.hash;

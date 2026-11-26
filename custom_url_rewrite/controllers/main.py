@@ -9,10 +9,25 @@ from odoo.http import request
 RESERVED_PREFIXES = {
     'web', 'website', 'static', 'odoo', 'longpolling',
     'mail', 'discuss', 'report', 'my', 'shop', 'payment',
+    'ar', 'en',
 }
 
 
 class CustomUrlRewrite(http.Controller):
+
+    @http.route(
+        ['/ar/web/login', '/en/web/login'],
+        type='http', auth='public', website=False, sitemap=False,
+    )
+    def lang_login_redirect(self, **kw):
+        """Redirect language-prefixed login links to /web/login while preserving ?db=."""
+        qs = request.httprequest.query_string.decode('utf-8', errors='ignore')
+        target = f'/web/login?{qs}' if qs else '/web/login'
+        resp = request.redirect(target, code=302)
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Vary'] = 'Cookie'
+        return resp
 
     @http.route(
         '/<string:segment>',
