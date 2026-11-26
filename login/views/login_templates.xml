@@ -67,7 +67,157 @@
 
         <template id="planb_login_layout_customization" inherit_id="web.login_layout"
             priority="9999">
-            <!-- Kept intentionally empty to override the old broken inherited view. -->
+            <xpath expr="//t[@t-call][1]" position="replace">
+                <t t-call="web.frontend_layout">
+                    <t t-set="html_data" t-value="{'style': 'height: 100%;'}"/>
+                    <t t-set="body_classname" t-value="'planb-login-body'"/>
+                    <t t-set="no_header" t-value="True"/>
+                    <t t-set="no_footer" t-value="True"/>
+                    <t t-set="title" t-value="'Login | Plan B Hub'"/>
+
+                    <style>
+                        .planb-login-body {
+                            min-height: 100vh;
+                            margin: 0;
+                            background:
+                                radial-gradient(900px 500px at 10% -10%, rgba(41, 182, 246, 0.14), transparent 60%),
+                                radial-gradient(800px 500px at 95% 105%, rgba(3, 155, 229, 0.12), transparent 60%),
+                                #f3f6fb;
+                            color: #111827;
+                            display: flex;
+                            flex-direction: column;
+                        }
+                        .planb-login-body main,
+                        .planb-login-body #wrapwrap,
+                        .planb-login-body #wrapwrap > main {
+                            flex: 1 0 auto;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 100%;
+                        }
+                        .planb-login-shell {
+                            width: 100%;
+                            padding: 32px 16px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .planb-login-card {
+                            width: 100%;
+                            max-width: 420px;
+                            background: #ffffff;
+                            border: 1px solid #e5e7eb;
+                            border-radius: 16px;
+                            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+                            padding: 32px 28px 24px;
+                        }
+                        .planb-login-header {
+                            text-align: center;
+                            padding-bottom: 20px;
+                            margin-bottom: 22px;
+                            border-bottom: 1px solid #eef2f7;
+                        }
+                        .planb-login-logo {
+                            max-height: 76px;
+                            max-width: 210px;
+                            width: auto;
+                            height: auto;
+                            object-fit: contain;
+                        }
+                        .planb-login-subtitle {
+                            margin: 10px 0 0;
+                            font-size: 0.92rem;
+                            color: #6b7280;
+                            font-weight: 500;
+                        }
+                        .planb-login-card .oe_login_form {
+                            margin: 0;
+                            padding: 0;
+                            max-width: 100%;
+                        }
+                        .planb-login-card .form-label {
+                            font-weight: 600;
+                            font-size: 0.9rem;
+                            color: #1f2937;
+                            margin-bottom: 6px;
+                        }
+                        .planb-login-card .form-control {
+                            border-radius: 8px;
+                            border-color: #d1d5db;
+                            padding: 10px 12px;
+                            font-size: 0.95rem;
+                            background-color: #ffffff;
+                            color: #111827;
+                        }
+                        .planb-login-card .form-control:focus {
+                            border-color: #29B6F6;
+                            box-shadow: 0 0 0 3px rgba(41, 182, 246, 0.2);
+                        }
+                        .planb-login-card .btn-primary {
+                            background-color: #29B6F6 !important;
+                            border-color: #29B6F6 !important;
+                            border-radius: 8px;
+                            padding: 10px 16px;
+                            font-weight: 600;
+                            font-size: 0.98rem;
+                            color: #ffffff !important;
+                            transition: background-color 0.15s ease, border-color 0.15s ease;
+                        }
+                        .planb-login-card .btn-primary:hover,
+                        .planb-login-card .btn-primary:focus,
+                        .planb-login-card .btn-primary:active {
+                            background-color: #039BE5 !important;
+                            border-color: #039BE5 !important;
+                        }
+                        .planb-login-card .o_show_password {
+                            border-color: #d1d5db !important;
+                            background: #f9fafb;
+                            color: #4b5563;
+                        }
+                        .planb-login-footer {
+                            text-align: center;
+                            margin-top: 22px;
+                            padding-top: 16px;
+                            border-top: 1px solid #eef2f7;
+                            font-size: 0.82rem;
+                            color: #6b7280;
+                        }
+                        .planb-login-footer a {
+                            color: #039BE5;
+                            text-decoration: none;
+                            font-weight: 600;
+                        }
+                        .planb-login-footer a:hover {
+                            text-decoration: underline;
+                        }
+                        html[dir="rtl"] .planb-login-card {
+                            text-align: right;
+                        }
+                        @media (max-width: 480px) {
+                            .planb-login-card {
+                                padding: 24px 18px 20px;
+                                border-radius: 14px;
+                            }
+                        }
+                    </style>
+
+                    <div class="planb-login-shell">
+                        <div class="planb-login-card o_database_list">
+                            <div class="planb-login-header">
+                                <img src="/login/static/src/img/planb_logo.webp"
+                                     alt="Plan B Hub"
+                                     class="planb-login-logo"/>
+                                <p class="planb-login-subtitle">Workspace Sign In</p>
+                            </div>
+                            <t t-out="0"/>
+                            <div class="planb-login-footer" t-if="not disable_footer">
+                                Powered by <a href="https://www.planb-hub.com/" target="_blank" rel="noopener">Plan B</a>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </xpath>
         </template>
 
     </data>

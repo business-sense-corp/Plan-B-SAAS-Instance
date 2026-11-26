@@ -6,15 +6,33 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 from odoo import http
 from odoo.http import request
 
+try:
+    from odoo.addons.portal.controllers.portal import CustomerPortal
+except ImportError:
+    CustomerPortal = http.Controller
 
-class PlanBCustomerPortalController(http.Controller):
+
+class PlanBCustomerPortalController(CustomerPortal):
     """Open the management portal login for the tenant owner."""
+
+    @http.route(
+        ['/my', '/my/home', '/ar/my', '/ar/my/home', '/en/my', '/en/my/home'],
+        type='http',
+        auth='user',
+        methods=['GET'],
+        website=False,
+        sitemap=False,
+    )
+    def home(self, **kw):
+        """Redirect tenant portal 'My Account' entrypoints to the management portal."""
+        return self.open_customer_portal(**kw)
 
     @http.route(
         '/planb/customer_portal',
         type='http',
         auth='user',
         methods=['GET'],
+        website=False,
         csrf=False,
         sitemap=False,
     )
