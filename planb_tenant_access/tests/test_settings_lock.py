@@ -1093,6 +1093,86 @@ class TestTenantSettingsLock(TransactionCase):
         self.assertTrue(btn_nodes)
         self.assertEqual(btn_nodes[0].attrib.get('invisible'), 'planb_hide_system_settings')
 
+    def test_28_digest_default_rebranded_to_planb(self):
+        """Verify default digest name and tips are rebranded to Plan B in EN and AR."""
+        digest = self.env.ref('digest.digest_digest_default')
+        self.assertEqual(
+            digest.with_context(lang='en_US').name,
+            'Your Plan B Periodic Digest',
+        )
+
+        installed_langs = {code for code, _ in self.env['res.lang'].get_installed()}
+        if 'ar_001' in installed_langs:
+            self.assertEqual(
+                digest.with_context(lang='ar_001').name,
+                'موجزك الدوري من Plan B',
+            )
+
+        settings_en = self.env['res.config.settings'].with_user(self.customer_owner).with_context(lang='en_US').create({})
+        self.assertEqual(settings_en.digest_id, digest)
+        self.assertEqual(settings_en.digest_id.name, 'Your Plan B Periodic Digest')
+
+        if 'ar_001' in installed_langs:
+            settings_ar = self.env['res.config.settings'].with_user(self.customer_owner).with_context(lang='ar_001').create({})
+            self.assertEqual(settings_ar.digest_id, digest)
+            self.assertEqual(settings_ar.digest_id.name, 'موجزك الدوري من Plan B')
+
+        tip_2 = self.env.ref('digest.digest_tip_digest_2', raise_if_not_found=False)
+        if tip_2:
+            self.assertNotIn('Odoo', tip_2.with_context(lang='en_US').name or '')
+            self.assertIn('Plan B', tip_2.with_context(lang='en_US').name or '')
+            if 'ar_001' in installed_langs:
+                self.assertNotIn('أودو', tip_2.with_context(lang='ar_001').name or '')
+                self.assertIn('Plan B', tip_2.with_context(lang='ar_001').name or '')
+
+        tip_3 = self.env.ref('digest.digest_tip_digest_3', raise_if_not_found=False)
+        if tip_3:
+            self.assertNotIn('@OdooBot', str(tip_3.with_context(lang='en_US').tip_description or ''))
+            if 'ar_001' in installed_langs:
+                self.assertNotIn('@OdooBot', str(tip_3.with_context(lang='ar_001').tip_description or ''))
+
+    def test_29_digest_email_template_and_custom_name_preserved(self):
+        """Verify digest email template removes Odoo branding, hides doc link, and preserves custom names."""
+        from lxml import etree
+
+        digest = self.env.ref('digest.digest_digest_default')
+        digest.sudo()._action_send_to_user(self.customer_owner, tips_count=0, consume_tips=False)
+        mail = self.env['mail.mail'].sudo().search(
+            [('email_to', '=', self.customer_owner.email_formatted)],
+            order='id desc',
+            limit=1,
+        )
+        self.assertTrue(mail, "Digest mail.mail record should be generated")
+        body_html = str(mail.body_html or '')
+        subject = mail.subject or ''
+
+        self.assertIn('Plan B', body_html)
+        self.assertIn('https://www.planb-hub.com', body_html)
+        self.assertNotIn('https://www.odoo.com', body_html)
+        self.assertNotIn('Odoo Mobile', body_html)
+        self.assertNotIn('com.odoo.mobile', body_html)
+        self.assertNotIn('Your Odoo Periodic Digest', subject)
+        self.assertNotIn('Your Odoo Periodic Digest', body_html)
+        self.assertNotIn('موجزك الدوري من أودو', subject)
+        self.assertNotIn('موجزك الدوري من أودو', body_html)
+
+        # Verify digest form view hides the Odoo documentation group
+        views = self.env['digest.digest'].with_user(self.customer_owner).get_views([(False, 'form')])
+        doc = etree.fromstring(views['views']['form']['arch'])
+        custom_group = doc.xpath("//group[@name='custom']")
+        self.assertTrue(custom_group)
+        self.assertEqual(custom_group[0].attrib.get('invisible'), '1')
+
+        # Verify customer-customized digest name is preserved across rebrand runs
+        digest.sudo().with_context(lang='en_US').write({'name': 'My Custom Company Digest'})
+        self.env['digest.digest'].sudo()._planb_rebrand_default_digest()
+        self.assertEqual(digest.sudo().with_context(lang='en_US').name, 'My Custom Company Digest')
+
+        # Verify resetting back to Odoo default gets rebranded again
+        digest.sudo().with_context(lang='en_US').write({'name': 'Your Odoo Periodic Digest'})
+        self.env['digest.digest'].sudo()._planb_rebrand_default_digest()
+        self.assertEqual(digest.sudo().with_context(lang='en_US').name, 'Your Plan B Periodic Digest')
+
 
 
 
